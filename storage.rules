@@ -1,0 +1,31 @@
+service firebase.storage {
+  match /b/{bucket}/o {
+    // User personal files: only the authenticated user can read/write their own files
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Project files: members and admins can read; owners/members/admins can write
+    match /projects/{projectId}/{allPaths=**} {
+      allow read: if request.auth != null && (
+        // project marked public in Firestore
+        (exists(/databases/(default)/documents/projects/$(projectId)) && get(/databases/(default)/documents/projects/$(projectId)).data.public == true) ||
+        // member of project
+        (exists(/databases/(default)/documents/projects/$(projectId)) && get(/databases/(default)/documents/projects/$(projectId)).data.members[request.auth.uid] == true) ||
+        // admin privilege
+        request.auth.token.admin == true
+      );
+
+      allow write: if request.auth != null && (
+        request.auth.token.admin == true ||
+        (exists(/databases/(default)/documents/projects/$(projectId)) && get(/databases/(default)/documents/projects/$(projectId)).data.owner == request.auth.uid) ||
+        (exists(/databases/(default)/documents/projects/$(projectId)) && get(/databases/(default)/documents/projects/$(projectId)).data.members[request.auth.uid] == true)
+      );
+    }
+
+    // Default: deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

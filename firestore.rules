@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+    function isAuthed() {
+      return request.auth != null;
+    }
+    function isMemberOfProject(projectId) {
+      return exists(/databases/$(database)/documents/projects/$(projectId)) && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] == true;
+    }
+
+    match /projects/{projectId} {
+      allow read: if isAuthed() && (resource.data.public == true || isMemberOfProject(projectId) || isAdmin());
+      allow create: if isAuthed() && request.resource.data.owner == request.auth.uid;
+      allow update, delete: if isAdmin() || (isAuthed() && resource.data.owner == request.auth.uid);
+
+      match /members/{memberId} {
+        allow read: if isAuthed() && (isMemberOfProject(projectId) || isAdmin());
+        allow write: if isAdmin() || (isAuthed() && get(/databases/$(database)/documents/projects/$(projectId)).data.owner == request.auth.uid);
+      }
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthed() && (isAdmin() || (request.resource.data.projectId != null && isMemberOfProject(request.resource.data.projectId)) || (resource.data.projectId != null && isMemberOfProject(resource.data.projectId)));
+      allow create: if isAuthed() && request.resource.data.createdBy == request.auth.uid && (request.resource.data.projectId != null && isMemberOfProject(request.resource.data.projectId));
+      allow update, delete: if isAdmin() || (isAuthed() && (resource.data.createdBy == request.auth.uid || get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.owner == request.auth.uid));
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthed() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAuthed() && request.auth.uid == userId;
+    }
+  }
+}

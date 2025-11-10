@@ -1,0 +1,25 @@
+{
+  "name": "gh-proyectos-functions",
+  "version": "0.1.0",
+  "private": true,
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -w -p tsconfig.json",
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+  "@azure/msal-node": "^2.16.3",
+    "axios": "^1.4.0",
+    "firebase-admin": "^11.0.0",
+    "firebase-functions": "^4.0.0",
+    "@google-cloud/functions-framework": "^3.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
