@@ -140,7 +140,7 @@ Este proyecto sigue las instrucciones definidas en `.github/instructions/ghProye
 
 ## 📝 Licencia
 
-[Tu licencia aquí]
+MIT © 2025 Larvizub
 
 
 ## React Compiler
