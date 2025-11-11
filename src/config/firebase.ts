@@ -1,10 +1,9 @@
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getDatabase } from 'firebase/database';
+import { getDatabase, Database } from 'firebase/database';
 import { getFunctions } from 'firebase/functions';
 
 // Configuración de Firebase
-// Reemplaza estos valores con los de tu proyecto Firebase
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -18,50 +17,47 @@ const firebaseConfig = {
 // Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 
-// Inicializar servicios
+// Servicios
 export const auth = getAuth(app);
-export const database = getDatabase(app);
-export const functions = getFunctions(app);
+// Base de datos principal (CORPORATIVO)
+export const database = getDatabase(app, import.meta.env.VITE_FIREBASE_DATABASE_URL);
+// Especificar la región de las Cloud Functions
+export const functions = getFunctions(app, 'us-central1');
 
-type SiteKey = 'CORPORATIVO' | 'CCCR' | 'CCCI' | 'CEVP';
+export type SiteKey = 'CORPORATIVO' | 'CCCR' | 'CCCI' | 'CEVP';
 
-const siteDatabaseUrls: Record<SiteKey, string> = {
+// Mapeo de sitios a URLs de bases de datos
+const DATABASE_URLS: Record<SiteKey, string> = {
   CORPORATIVO: import.meta.env.VITE_FIREBASE_DATABASE_URL,
   CCCR: import.meta.env.VITE_FIREBASE_DATABASE_URL_CCCR,
   CCCI: import.meta.env.VITE_FIREBASE_DATABASE_URL_CCCI,
   CEVP: import.meta.env.VITE_FIREBASE_DATABASE_URL_CEVP,
 };
 
-const appsCache: Record<string, FirebaseApp> = {};
+// Cache de instancias de base de datos
+const databaseInstances = new Map<SiteKey, Database>();
 
-export function getDatabaseForSite(site: SiteKey) {
-  const url = siteDatabaseUrls[site];
-  if (!url) {
-    throw new Error(`Database URL not configured for site ${site}`);
+/**
+ * Obtiene la instancia de base de datos para el sitio especificado
+ * Cachea las instancias para reutilizarlas
+ */
+export function getDatabaseForSite(site: SiteKey): Database {
+  // Si ya existe en el cache, retornarla
+  if (databaseInstances.has(site)) {
+    return databaseInstances.get(site)!;
   }
-
-  const appName = `app_${site}`;
-
-  // If app already initialized, return its database
-  try {
-    if (appsCache[appName]) {
-      return getDatabase(appsCache[appName]);
-    }
-    // If an app with same name exists in firebase apps, reuse it
-    const existing = getApps().find((a) => a.name === appName);
-    if (existing) {
-      appsCache[appName] = existing;
-      return getDatabase(existing);
-    }
-  } catch (e) {
-    // ignore
+  
+  // Crear nueva instancia
+  const dbUrl = DATABASE_URLS[site];
+  if (!dbUrl) {
+    console.error(`No database URL found for site: ${site}`);
+    return database; // Fallback a la base de datos principal
   }
-
-  // Create a new app instance with overridden databaseURL
-  const cfg = { ...firebaseConfig, databaseURL: url } as any;
-  const newApp = initializeApp(cfg, appName);
-  appsCache[appName] = newApp;
-  return getDatabase(newApp);
+  
+  const dbInstance = getDatabase(app, dbUrl);
+  databaseInstances.set(site, dbInstance);
+  
+  return dbInstance;
 }
 
 export default app;

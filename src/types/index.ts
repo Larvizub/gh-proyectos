@@ -23,6 +23,13 @@ export interface Project {
 export type TaskStatus = 'todo' | 'in-progress' | 'review' | 'completed';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
+export interface SubTask {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: number;
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -37,6 +44,7 @@ export interface Task {
   completedAt?: number;
   parentTaskId?: string; // Para subtareas
   dependsOn?: string[]; // IDs de tareas de las que depende
+  subTasks?: SubTask[]; // Subtareas de esta tarea
   tags: string[];
   attachments: string[];
   createdAt: number;

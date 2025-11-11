@@ -10,7 +10,7 @@ import ProjectDetailsPage from './pages/ProjectDetailsPage';
 import { Toaster } from 'sonner';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { firebaseUser, loading } = useAuth();
 
   if (loading) {
     return (
@@ -20,7 +20,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return user ? <>{children}</> : <Navigate to="/login" />;
+  return firebaseUser ? <>{children}</> : <Navigate to="/login" />;
 }
 
 function App() {

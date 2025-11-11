@@ -1,43 +1,18 @@
 {
   "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
     "projects": {
-      "$projectId": {
-        ".read": "auth != null && (data.child('public').val() === true || root.child('projects').child($projectId).child('members').child(auth.uid).exists() || auth.token.admin == true)",
-        ".write": "auth != null && (auth.token.admin == true || (!data.exists() && newData.child('owner').val() === auth.uid) || root.child('projects').child($projectId).child('members').child(auth.uid).exists())",
-        "owner": {
-          ".validate": "newData.isString() && newData.val() === auth.uid"
-        },
-        "members": {
-          ".read": "auth != null && (root.child('projects').child($projectId).child('members').child(auth.uid).exists() || auth.token.admin == true)",
-          ".write": "auth != null && (auth.token.admin == true || data.parent().child('owner').val() === auth.uid)"
-        }
-      }
+      ".indexOn": ["createdBy", "status", "createdAt"]
     },
     "tasks": {
-      "$taskId": {
-        ".read": "auth != null && ( (data.exists() && root.child('projects').child(data.child('projectId').val()).child('members').child(auth.uid).exists()) || auth.token.admin == true)",
-        ".write": "auth != null && (auth.token.admin == true || (!data.exists() && newData.child('createdBy').val() === auth.uid) || root.child('projects').child(newData.child('projectId').val()).child('members').child(auth.uid).exists())",
-        "createdBy": {
-          ".validate": "newData.isString() && newData.val() === auth.uid"
-        },
-        "projectId": {
-          ".validate": "newData.isString()"
-        }
-      }
+      ".indexOn": ["projectId", "status", "assignedTo", "createdAt"]
+    },
+    "comments": {
+      ".indexOn": ["taskId", "createdAt"]
     },
     "users": {
-      "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.admin == true)",
-        ".write": "auth != null && auth.uid === $uid",
-        "email": {
-          ".validate": "newData.isString()"
-        },
-        "role": {
-          ".validate": "newData.isString() && (newData.val() === 'user' || newData.val() === 'admin')"
-        }
-      }
-    },
-    ".read": "false",
-    ".write": "false"
+      ".indexOn": ["email"]
+    }
   }
 }

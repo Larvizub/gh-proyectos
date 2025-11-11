@@ -2,11 +2,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Select from '@/components/ui/select';
 
 export function LoginPage() {
-  const { signInWithMicrosoft, loading } = useAuth();
+  const { signInWithMicrosoft, loading, user } = useAuth();
+  const navigate = useNavigate();
   const [site, setSite] = useState<'CORPORATIVO' | 'CCCR' | 'CCCI' | 'CEVP'>(() => {
     try {
       const s = localStorage.getItem('selectedSite');
@@ -15,6 +17,14 @@ export function LoginPage() {
       return 'CORPORATIVO';
     }
   });
+
+  // Redirigir si el usuario ya está autenticado
+  useEffect(() => {
+    if (user) {
+      console.log('User detected, redirecting to dashboard...');
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   const handleLogin = async () => {
     try {
