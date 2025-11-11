@@ -5,6 +5,8 @@ import { MainLayout } from './components/layout/MainLayout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectsPage } from './pages/ProjectsPage';
+import NewProjectPage from './pages/NewProjectPage';
+import ProjectDetailsPage from './pages/ProjectDetailsPage';
 import { Toaster } from 'sonner';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -38,8 +40,8 @@ function App() {
             }>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
-              <Route path="/projects/:id" element={<div>Detalles del Proyecto</div>} />
-              <Route path="/projects/new" element={<div>Nuevo Proyecto</div>} />
+              <Route path="/projects/:id" element={<ProjectDetailsPage />} />
+              <Route path="/projects/new" element={<NewProjectPage />} />
               <Route path="/settings" element={<div>Configuración</div>} />
               <Route path="/admin" element={<div>Administración</div>} />
             </Route>

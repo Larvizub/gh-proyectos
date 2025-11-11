@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { projectsService } from '@/services/firebase.service';
 import { Project } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import PageLoader from '@/components/PageLoader';
 
 export function ProjectsPage() {
   const { user } = useAuth();
@@ -26,11 +27,7 @@ export function ProjectsPage() {
   }, [user]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Cargando proyectos...</p>
-      </div>
-    );
+    return <PageLoader message="Cargando proyectos..." />;
   }
 
   return (
