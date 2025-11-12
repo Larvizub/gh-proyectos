@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
 import TaskEditorModal from '@/components/tasks/TaskEditorModal';
-import { LayoutList, LayoutGrid, Calendar, Plus, Clipboard, Activity, Eye, CheckCircle, ArrowDown, Minus, ArrowUp, Zap } from 'lucide-react';
+import { LayoutList, LayoutGrid, Calendar, Plus, Clipboard, Activity, Eye, CheckCircle, ArrowDown, Minus, ArrowUp, Zap, Edit3, Trash2 } from 'lucide-react';
 import Select from '@/components/ui/select';
 import DatePicker from '@/components/ui/DatePicker';
 import PageLoader from '@/components/PageLoader';
@@ -61,7 +61,7 @@ export default function ProjectDetailsPage() {
     };
   }, [id]);
 
-  if (loading) return <PageLoader message="Cargando proyecto..." />;
+  if (loading) return <PageLoader message="Cargando proyecto..." overlay={false} />;
   if (!project) return <div>Proyecto no encontrado</div>;
 
   async function handleCreateTask(e: React.FormEvent) {
@@ -117,6 +117,19 @@ export default function ProjectDetailsPage() {
         loading: 'Actualizando...',
         success: 'Estado actualizado',
         error: 'Error al actualizar',
+      }
+    );
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    if (!confirm('¿Estás seguro de eliminar esta tarea? Esta acción no se puede deshacer.')) return;
+
+    await toast.promise(
+      tasksService.delete(taskId),
+      {
+        loading: 'Eliminando tarea...',
+        success: 'Tarea eliminada',
+        error: (err) => `Error: ${err?.message || 'No se pudo eliminar la tarea'}`,
       }
     );
   }
@@ -324,6 +337,7 @@ export default function ProjectDetailsPage() {
           tasks={tasks} 
           onTaskClick={(task) => setSelectedTask(task)}
           onTaskStatusChange={handleTaskStatusChange}
+          onTaskDelete={handleDeleteTask}
         />
       )}
 
@@ -335,6 +349,10 @@ export default function ProjectDetailsPage() {
                 <th className="px-4 py-2">Título</th>
                 <th className="px-4 py-2">Estado</th>
                 <th className="px-4 py-2">Prioridad</th>
+                <th className="px-4 py-2">Asignados</th>
+                <th className="px-4 py-2">Tags</th>
+                <th className="px-4 py-2">Adjuntos</th>
+                <th className="px-4 py-2">Inicio</th>
                 <th className="px-4 py-2">Vencimiento</th>
                 <th className="px-4 py-2">Acciones</th>
               </tr>
@@ -342,26 +360,34 @@ export default function ProjectDetailsPage() {
             <tbody>
               {tasks.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-8">No hay tareas en este proyecto</td>
+                  <td colSpan={9} className="text-center py-8">No hay tareas en este proyecto</td>
                 </tr>
               ) : (
                 tasks.map(task => (
                   <tr key={task.id} className="border-b hover:bg-muted/10">
                     <td className="px-4 py-3">{task.title}</td>
                     <td className="px-4 py-3">
-                      {/* Mostrar estado como badge; edición solo vía botón Editar */}
                       <div>
-                        {task.status === 'todo' && <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100">Por hacer</span>}
-                        {task.status === 'in-progress' && <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">En progreso</span>}
-                        {task.status === 'review' && <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">En revisión</span>}
-                        {task.status === 'completed' && <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">Completada</span>}
+                        {task.status === 'todo' && <span className="px-2 py-1 text-xs rounded-full bg-col-todo text-col-todo-text">Por hacer</span>}
+                        {task.status === 'in-progress' && <span className="px-2 py-1 text-xs rounded-full bg-col-inprogress text-col-inprogress-text">En progreso</span>}
+                        {task.status === 'review' && <span className="px-2 py-1 text-xs rounded-full bg-col-review text-col-review-text">En revisión</span>}
+                        {task.status === 'completed' && <span className="px-2 py-1 text-xs rounded-full bg-col-completed text-col-completed-text">Completada</span>}
                       </div>
                     </td>
-                    <td className="px-4 py-3">{task.priority}</td>
+                    <td className="px-4 py-3 capitalize">{task.priority}</td>
+                    <td className="px-4 py-3">{(task.assigneeIds || []).length}</td>
+                    <td className="px-4 py-3">{(task.tags || []).slice(0,3).join(', ') || '-'}</td>
+                    <td className="px-4 py-3">{(task.attachments || []).length}</td>
+                    <td className="px-4 py-3">{task.startDate ? new Date(task.startDate).toLocaleDateString() : '-'}</td>
                     <td className="px-4 py-3">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
-                        <Button size="sm" variant="secondary" className="font-semibold" onClick={() => setSelectedTask(task)}>Editar</Button>
+                        <button type="button" onClick={() => setSelectedTask(task)} className="p-2 rounded hover:bg-muted text-muted-foreground" title="Editar">
+                          <Edit3 className="h-4 w-4" />
+                        </button>
+                        <button type="button" onClick={() => handleDeleteTask(task.id)} className="p-2 rounded hover:bg-destructive/10 text-destructive" title="Eliminar">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>

@@ -21,6 +21,35 @@
   --color-foreground: #e6efe9;
 }
 
+/* Column color variables for Kanban (semantic tokens) */
+:root {
+  --col-todo-bg: #f8fafc;
+  --col-todo-text: #0f172a;
+
+  --col-inprogress-bg: #eef2ff;
+  --col-inprogress-text: #0b3a6b;
+
+  --col-review-bg: #fff7ed;
+  --col-review-text: #4a2f00;
+
+  --col-completed-bg: #ecfdf5;
+  --col-completed-text: #064e3b;
+}
+
+.dark {
+  --col-todo-bg: rgba(15, 23, 42, 0.60); /* slate-800/60 */
+  --col-todo-text: #e6efe9;
+
+  --col-inprogress-bg: rgba(30, 64, 175, 0.30); /* blue-900/30 */
+  --col-inprogress-text: #e6f0ff;
+
+  --col-review-bg: rgba(133, 77, 34, 0.24); /* amber-900/24 */
+  --col-review-text: #fff7e6;
+
+  --col-completed-bg: rgba(4, 120, 87, 0.30); /* green-900/30 */
+  --col-completed-text: #e6fff6;
+}
+
 /* Tailwind utilities expect directives at the top (above custom rules) */
 
 html, body { height: 100%; }

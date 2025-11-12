@@ -53,6 +53,16 @@ export default {
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
   			}
+					,
+					/* Kanban column semantic colors (map to CSS variables) */
+					'col-todo': 'var(--col-todo-bg)',
+					'col-todo-text': 'var(--col-todo-text)',
+					'col-inprogress': 'var(--col-inprogress-bg)',
+					'col-inprogress-text': 'var(--col-inprogress-text)',
+					'col-review': 'var(--col-review-bg)',
+					'col-review-text': 'var(--col-review-text)',
+					'col-completed': 'var(--col-completed-bg)',
+					'col-completed-text': 'var(--col-completed-text)'
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

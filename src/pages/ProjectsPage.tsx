@@ -27,7 +27,8 @@ export function ProjectsPage() {
   }, [user]);
 
   if (loading) {
-    return <PageLoader message="Cargando proyectos..." />;
+    // No usamos el overlay completo aquí para evitar un parpadeo al navegar entre rutas.
+    return <PageLoader message="Cargando proyectos..." overlay={false} />;
   }
 
   return (

@@ -9,7 +9,9 @@ import {
   AlertCircle,
   Flag,
   Calendar,
-  Paperclip
+  Paperclip,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -17,28 +19,29 @@ import { es } from 'date-fns/locale';
 interface TaskCardProps {
   task: Task;
   onClick?: () => void;
+  onDelete?: () => void;
 }
 
 const statusConfig: Record<TaskStatus, { label: string; icon: React.ReactNode; className: string }> = {
   'todo': {
     label: 'Por hacer',
     icon: <Circle className="h-4 w-4" />,
-    className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+    className: 'bg-col-todo text-col-todo-text'
   },
   'in-progress': {
     label: 'En progreso',
     icon: <Clock className="h-4 w-4" />,
-    className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+    className: 'bg-col-inprogress text-col-inprogress-text'
   },
   'review': {
     label: 'En revisión',
     icon: <AlertCircle className="h-4 w-4" />,
-    className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+    className: 'bg-col-review text-col-review-text'
   },
   'completed': {
     label: 'Completada',
     icon: <CheckCircle2 className="h-4 w-4" />,
-    className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+    className: 'bg-col-completed text-col-completed-text'
   }
 };
 
@@ -61,7 +64,7 @@ const priorityConfig: Record<TaskPriority, { label: string; className: string }>
   }
 };
 
-export function TaskCard({ task, onClick }: TaskCardProps) {
+export function TaskCard({ task, onClick, onDelete }: TaskCardProps) {
   // defensive defaults in case some fields are missing at runtime
   const statusInfo = statusConfig[task?.status ?? 'todo'];
   const priorityInfo = priorityConfig[task?.priority ?? 'low'];
@@ -88,7 +91,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   
   return (
     <Card 
-      className="hover:shadow-xl transition-all duration-200 cursor-pointer border-2 hover:border-primary/50 hover:scale-[1.02] group ring-1 ring-transparent dark:ring-white/5"
+      className="hover:shadow-xl transition-all duration-200 cursor-pointer border-2 hover:border-primary/50 hover:scale-[1.02] group ring-1 ring-transparent dark:ring-white/5 relative"
       onClick={onClick}
     >
       <CardHeader className="pb-3">
@@ -96,7 +99,29 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           <CardTitle className="text-base font-semibold line-clamp-2 group-hover:text-primary transition-colors">
             {task?.title ?? 'Sin título'}
           </CardTitle>
-          <Flag className={`h-5 w-5 flex-shrink-0 ${priorityInfo.className} transition-transform group-hover:scale-110`} fill="currentColor" />
+          <div className="flex items-center gap-2">
+            {/* Priority flag */}
+            <Flag className={`h-5 w-5 flex-shrink-0 ${priorityInfo.className} transition-transform group-hover:scale-110`} fill="currentColor" />
+
+            {/* Action icons: edit (opens editor via parent click) and delete */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); /* parent should open editor via onClick */ }}
+              className="p-1 rounded hover:bg-muted text-muted-foreground"
+              title="Editar"
+            >
+              <Edit3 className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDelete && onDelete(); }}
+              className="p-1 rounded hover:bg-destructive/10 text-destructive"
+              title="Eliminar"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </CardHeader>
       
