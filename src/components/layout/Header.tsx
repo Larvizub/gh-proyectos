@@ -5,9 +5,10 @@ import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   className?: string;
+  onToggleSidebar?: () => void;
 }
 
-export function Header({ className }: HeaderProps) {
+export function Header({ className, onToggleSidebar }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -17,16 +18,18 @@ export function Header({ className }: HeaderProps) {
       className
     )}>
       <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center gap-4">
-          <img 
-            src="https://costaricacc.com/cccr/Logoheroica.png" 
-            alt="Logo" 
-            className={cn(
-              "h-10 w-auto transition-all",
-              theme === 'dark' && "brightness-0 invert"
-            )}
+        <div className="flex items-center gap-4 pl-2 md:pl-6">
+          <button onClick={onToggleSidebar} className="md:hidden p-2 rounded hover:bg-muted mr-2" aria-label="Abrir menú">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+          {/* Logo + title on desktop */}
+          <img
+            src="https://costaricacc.com/cccr/Logoheroica.png"
+            alt="Heroica Logo"
+            className="hidden md:inline-block h-8 w-auto mr-2"
+            style={{ filter: theme === 'dark' ? 'brightness(0) invert(1)' : undefined }}
           />
-          <h1 className="text-xl font-bold text-primary">
+          <h1 className="text-xl font-bold text-primary pl-1 md:pl-0">
             Gestión de Proyectos
           </h1>
         </div>

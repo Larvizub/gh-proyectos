@@ -24,6 +24,7 @@ export default function ProjectDetailsPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [viewType, setViewType] = useState<ViewType>('kanban');
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
 
   // Task form
   const [title, setTitle] = useState('');
@@ -62,6 +63,23 @@ export default function ProjectDetailsPage() {
       if (unsubTasks) unsubTasks();
     };
   }, [id]);
+
+  // Si entramos en modo compacto, forzar una vista soportada (kanban o calendar)
+  useEffect(() => {
+    if (isCompact && (viewType === 'gantt' || viewType === 'list')) {
+      setViewType('kanban');
+      toast('Las vistas Gantt y Lista no están disponibles en pantallas pequeñas. Se ha cambiado a Kanban.');
+    }
+  }, [isCompact, viewType]);
+  // Listener para detectar pantalla compacta
+  useEffect(() => {
+    function updateCompact() {
+      setIsCompact(window.innerWidth < 768);
+    }
+    updateCompact();
+    window.addEventListener('resize', updateCompact);
+    return () => window.removeEventListener('resize', updateCompact);
+  }, []);
 
   if (loading) return <PageLoader message="Cargando proyecto..." overlay={false} />;
   if (!project) return <div>Proyecto no encontrado</div>;
@@ -180,13 +198,19 @@ export default function ProjectDetailsPage() {
               <span className="text-sm font-medium hidden sm:inline">Kanban</span>
             </button>
             <button
-              onClick={() => setViewType('gantt')}
+              onClick={() => {
+                if (isCompact) {
+                  toast('Las vistas Gantt y Lista no están disponibles en pantallas pequeñas. Se ha cambiado a Kanban.');
+                  return;
+                }
+                setViewType('gantt');
+              }}
               className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                viewType === 'gantt' 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
+                viewType === 'gantt'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'hover:bg-muted text-muted-foreground'
-              }`}
-              title="Vista Gantt"
+              } ${isCompact ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={isCompact ? 'Gantt no disponible en pantallas pequeñas' : 'Vista Gantt'}
             >
               <Activity className="h-4 w-4" />
               <span className="text-sm font-medium hidden sm:inline">Gantt</span>

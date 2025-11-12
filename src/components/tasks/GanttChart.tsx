@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { Task } from '@/types';
 import { format, differenceInCalendarDays, addDays, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -14,6 +14,7 @@ interface GanttChartProps {
 // small helpers
 
 export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttChartProps) {
+  const [isCompact, setIsCompact] = useState(false);
   const { days, startDate } = useMemo(() => {
     if (!tasks || tasks.length === 0) {
       const today = startOfDay(new Date());
@@ -34,21 +35,58 @@ export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttCh
 
   const totalDays = days.length;
 
+  // Si la línea temporal es muy larga, agrupar por semanas para evitar demasiadas columnas
+  const useWeekBuckets = totalDays > 42; // más de ~6 semanas -> agrupar
+  const unitDays = useWeekBuckets ? 7 : 1;
+
+  // Calcular unidades (días o semanas)
+  const units = useMemo(() => {
+    if (!useWeekBuckets) return days;
+    const weeks: Date[] = [];
+    // startDate es el primer día mostrado; agrupar por bloques de 7 días
+    for (let i = 0; i < Math.ceil(totalDays / 7); i++) {
+      weeks.push(addDays(startDate, i * 7));
+    }
+    return weeks;
+  }, [useWeekBuckets, days, totalDays, startDate]);
+
+  const unitCount = units.length;
+
+  useEffect(() => {
+    function update() {
+      setIsCompact(window.innerWidth < 768);
+    }
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
   return (
     <div className="w-full overflow-auto border rounded-lg">
-      <div className="min-w-[800px]">
+      <div className={isCompact ? 'min-w-0' : 'min-w-[800px]'}>
         {/* Header */}
-        <div className="flex items-center bg-background border-b sticky top-0 z-10">
-          <div className="w-64 p-3 font-semibold">Tarea</div>
-          <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${totalDays}, 1fr)` }}>
-            {days.map((d) => (
-              <div key={d.toISOString()} className="text-xs text-muted-foreground p-2 border-l last:border-r">
-                <div className="whitespace-nowrap">{format(d, 'dd MMM', { locale: es })}</div>
-                <div className="text-[10px] text-muted-foreground/60">{format(d, 'EEE', { locale: es })}</div>
-              </div>
-            ))}
+        {!isCompact && (
+          <div className="flex items-center bg-background border-b sticky top-0 z-10">
+            <div className="w-64 p-3 font-semibold">Tarea</div>
+            <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${unitCount}, 1fr)` }}>
+              {units.map((u, idx) => (
+                <div key={u.toISOString()} className="text-xs text-muted-foreground p-2 border-l last:border-r">
+                  {useWeekBuckets ? (
+                    <>
+                      <div className="whitespace-nowrap">{format(u, "dd MMM", { locale: es })} - {format(addDays(u, 6), 'dd MMM', { locale: es })}</div>
+                      <div className="text-[10px] text-muted-foreground/60">Semana {idx + 1}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="whitespace-nowrap">{format(u, 'dd MMM', { locale: es })}</div>
+                      <div className="text-[10px] text-muted-foreground/60">{format(u, 'EEE', { locale: es })}</div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Rows */}
         <div className="divide-y">
@@ -65,7 +103,32 @@ export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttCh
             const leftPct = (left / totalDays) * 100;
             const widthPct = (width / totalDays) * 100;
 
-            return (
+            return isCompact ? (
+              <div key={task.id} className="p-3 border-b bg-background/50">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <div className="font-medium">{task.title}</div>
+                    <div className="text-xs text-muted-foreground">{format(taskStart, 'dd/MM')} → {format(taskEnd, 'dd/MM')}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={(e) => { e.stopPropagation(); onTaskDelete && onTaskDelete(task.id); }} className="p-1 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                </div>
+                {/* Compact bar: ensure minimum visible width and avoid horizontal overflow */}
+                <div className="w-full h-4 bg-muted rounded overflow-hidden">
+                  <div
+                    className="h-full rounded"
+                    style={{
+                      width: `${Math.max(widthPct, 6)}%`,
+                      marginLeft: `${Math.max(leftPct, 0)}%`,
+                      background: 'linear-gradient(90deg, rgba(99,102,241,0.95), rgba(79,70,229,0.9))',
+                      minWidth: '36px'
+                    }}
+                    title={`${task.title} — ${format(taskStart, 'dd/MM')} → ${format(taskEnd, 'dd/MM')}`}
+                  />
+                </div>
+              </div>
+            ) : (
               <div key={task.id} className="flex items-center group hover:bg-muted/5 p-2">
                 <div className="w-64 pr-4">
                   <div className="flex items-center justify-between">
@@ -85,25 +148,25 @@ export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttCh
                   </div>
                 </div>
 
-                <div className="flex-1 relative h-14">
-                  <div className="absolute inset-0 flex">
-                    <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${totalDays}, 1fr)` }}>
-                      {days.map((_, idx) => (
-                        <div key={idx} className={`border-l ${idx === totalDays - 1 ? 'last:border-r' : ''}`} />
-                      ))}
-                    </div>
-                  </div>
+                  <div className="flex-1 relative h-14">
+                        <div className="absolute inset-0 flex">
+                          <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${unitCount}, 1fr)` }}>
+                            {units.map((_, idx) => (
+                              <div key={idx} className={`border-l ${idx === unitCount - 1 ? 'last:border-r' : ''}`} />
+                            ))}
+                          </div>
+                        </div>
 
                   {/* Task bar */}
                   <div
                     onClick={() => onTaskClick && onTaskClick(task)}
-                    className="absolute top-3 left-0 h-8 rounded-md shadow-md cursor-pointer"
+                      className="absolute top-3 left-0 h-8 rounded-md shadow-md cursor-pointer"
                     style={{
-                      left: `${leftPct}%`,
-                      width: `${widthPct}%`,
+                      left: `${(left / unitDays) / unitCount * 100}%`,
+                      width: `${(Math.max(1, Math.ceil(width / unitDays)) / unitCount) * 100}%`,
                       background: 'linear-gradient(90deg, rgba(99,102,241,0.95), rgba(79,70,229,0.9))',
                     }}
-                    title={`${task.title} — ${taskStart.toLocaleDateString()} → ${taskEnd.toLocaleDateString()}`}
+                      title={`${task.title} — ${taskStart.toLocaleDateString()} → ${taskEnd.toLocaleDateString()}`}
                   >
                     <div className="h-full flex items-center justify-between px-3 text-sm text-white">
                       <div className="truncate font-medium">{task.title}</div>

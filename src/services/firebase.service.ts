@@ -1,5 +1,6 @@
 import { database, getDatabaseForSite, resolveDatabase } from '@/config/firebase';
 import { ref, push, set, get, update, remove, onValue, off, query, orderByChild, equalTo } from 'firebase/database';
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Project, Task, Comment, User } from '@/types';
 
 // Proyectos
@@ -118,6 +119,51 @@ export const tasksService = {
     
     return () => off(tasksQuery);
   },
+
+  // Upload a file to Firebase Storage and attach to the task record
+  uploadAttachment: async (taskId: string, file: File, uploadedBy?: string, reference = false) => {
+    const storage = getStorage();
+    const path = `taskAttachments/${taskId}/${Date.now()}_${file.name}`;
+    const fileRef = storageRef(storage, path);
+
+    const snapshot = await uploadBytesResumable(fileRef, file);
+    const url = await getDownloadURL(snapshot.ref);
+
+    // Create attachment object
+    const attachment = {
+      id: snapshot.ref.name,
+      name: file.name,
+      url,
+      uploadedBy: uploadedBy || null,
+      createdAt: Date.now(),
+      reference
+    } as any;
+
+    // Fetch current task attachments and append
+    const dbToUse = resolveDatabase();
+    const taskRef = ref(dbToUse, `tasks/${taskId}`);
+    const snap = await get(taskRef);
+    if (!snap.exists()) throw new Error('Task not found');
+    const task = snap.val() as Task;
+    const existing: any[] = task.attachments || [];
+    existing.push(attachment);
+    await update(taskRef, { attachments: existing, updatedAt: Date.now() });
+
+    return attachment;
+  },
+
+  removeAttachment: async (taskId: string, attachmentId: string) => {
+    // Remove attachment metadata from task (does not delete from Storage)
+    const dbToUse = resolveDatabase();
+    const taskRef = ref(dbToUse, `tasks/${taskId}`);
+    const snap = await get(taskRef);
+    if (!snap.exists()) throw new Error('Task not found');
+    const task = snap.val() as Task;
+    const existing: any[] = task.attachments || [];
+    const remaining = existing.filter(a => a.id !== attachmentId);
+    await update(taskRef, { attachments: remaining, updatedAt: Date.now() });
+    return remaining;
+  }
 };
 
 // Comentarios

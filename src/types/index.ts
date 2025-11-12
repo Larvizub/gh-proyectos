@@ -50,9 +50,18 @@ export interface Task {
   dependsOn?: string[]; // IDs de tareas de las que depende
   subTasks?: SubTask[]; // Subtareas de esta tarea
   tags: string[];
-  attachments: string[];
+  attachments: Attachment[];
   createdAt: number;
   updatedAt: number;
+}
+
+export interface Attachment {
+  id: string;
+  name: string;
+  url: string;
+  uploadedBy?: string;
+  createdAt: number;
+  reference?: boolean; // true if it's a reference doc
 }
 
 export interface Comment {

@@ -5,6 +5,23 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#273c2a" />
+    <!-- Pre-render theme class to avoid flash: respects localStorage 'theme' or system preference -->
+    <script>
+      (function(){
+        try {
+          var stored = localStorage.getItem('theme');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = stored || (prefersDark ? 'dark' : 'light');
+          document.documentElement.classList.remove('light','dark');
+          document.documentElement.classList.add(theme);
+          // set theme-color meta for mobile browser UI
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) {
+            meta.setAttribute('content', theme === 'dark' ? '#0b1220' : '#ffffff');
+          }
+        } catch(e) { /* ignore */ }
+      })();
+    </script>
     <meta name="description" content="Plataforma de gestión de proyectos y tareas" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Gestión de Proyectos</title>

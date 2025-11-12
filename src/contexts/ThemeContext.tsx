@@ -37,6 +37,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       // ignore
     }
+    // Actualizar meta theme-color para navegadores móviles
+    try {
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b1220' : '#ffffff');
+    } catch (e) {}
   }, [theme, manual]);
 
   // Escuchar cambios en la preferencia del sistema solo si no hay elección manual

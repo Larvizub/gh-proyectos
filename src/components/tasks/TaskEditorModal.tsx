@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Task, TaskStatus, User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
 import Select from '@/components/ui/select';
 import { tasksService, usersService } from '@/services/firebase.service';
 import { toast } from 'sonner';
 import DatePicker from '@/components/ui/DatePicker';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
   task: Task | null;
@@ -21,6 +23,9 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
   const [dueInput, setDueInput] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [selectedAssignee, setSelectedAssignee] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(Date.now());
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!task) return;
@@ -90,6 +95,36 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     onClose();
   }
 
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!task) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await tasksService.uploadAttachment(task.id, file, user?.id);
+      toast.success('Archivo subido');
+      // refresh: parent listener will update the task list; we still reset the file input
+      setFileInputKey(Date.now());
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Error al subir archivo');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleRemoveAttachment(attId: string) {
+    if (!task) return;
+    if (!confirm('¿Eliminar este archivo de la tarea? (no borra el archivo en Storage)')) return;
+    try {
+      await tasksService.removeAttachment(task.id, attId);
+      toast.success('Adjunto eliminado');
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo eliminar el adjunto');
+    }
+  }
+
   if (!task) return null;
 
   return (
@@ -144,6 +179,32 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
                   <option key={u.id} value={u.id}>{u.displayName || u.email}</option>
                 ))}
               </Select>
+            </div>
+
+            {/* File attachments */}
+            <div>
+              <label className="text-sm font-medium">Documentos de referencia / Adjuntos</label>
+              <div className="mt-2 space-y-2">
+                {(task.attachments || []).map((att) => (
+                  <div key={(att as any).id} className="flex items-center justify-between bg-muted/5 rounded px-3 py-2">
+                    <a href={(att as any).url} target="_blank" rel="noreferrer" className="truncate mr-3">{(att as any).name}</a>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{new Date((att as any).createdAt).toLocaleDateString()}</span>
+                      <button type="button" onClick={() => handleRemoveAttachment((att as any).id)} className="p-2 rounded hover:bg-destructive/10 text-destructive" title="Eliminar adjunto">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="flex items-center gap-2">
+                  <input key={fileInputKey} type="file" onChange={handleFileChange} className="hidden" id="task-file-input" />
+                  <label htmlFor="task-file-input" className={`inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground cursor-pointer ${uploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 12v9m0-9l3.5 3.5M12 12L8.5 15.5M16 5l-4-4-4 4"/></svg>
+                    <span className="text-sm">Subir archivo</span>
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-3 justify-end pt-2">
