@@ -13,6 +13,7 @@ import Select from '@/components/ui/select';
 import DatePicker from '@/components/ui/DatePicker';
 import PageLoader from '@/components/PageLoader';
 import { useAuth } from '@/contexts/AuthContext';
+import CalendarView from '@/components/tasks/CalendarView';
 
 export default function ProjectDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -195,10 +196,9 @@ export default function ProjectDetailsPage() {
               className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
                 viewType === 'calendar' 
                   ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'hover:bg-muted text-muted-foreground opacity-50 cursor-not-allowed'
+                  : 'hover:bg-muted text-muted-foreground'
               }`}
-              title="Vista de calendario (próximamente)"
-              disabled
+              title="Vista de calendario"
             >
               <Calendar className="h-4 w-4" />
               <span className="text-sm font-medium hidden sm:inline">Calendario</span>
@@ -420,12 +420,9 @@ export default function ProjectDetailsPage() {
       )}
 
       {viewType === 'calendar' && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Calendar className="h-16 w-16 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Vista de calendario próximamente</p>
-          </CardContent>
-        </Card>
+        <div>
+          <CalendarView tasks={tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
+        </div>
       )}
 
       
