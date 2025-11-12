@@ -75,7 +75,7 @@ export interface Notification {
   createdAt: number;
 }
 
-export type ViewType = 'list' | 'kanban' | 'calendar';
+export type ViewType = 'list' | 'kanban' | 'calendar' | 'gantt';
 
 export interface FilterOptions {
   status?: TaskStatus[];

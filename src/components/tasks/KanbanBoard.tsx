@@ -75,8 +75,8 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDele
     const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: column.id });
 
     return (
-      <div ref={setDroppableRef} className="flex flex-col h-full min-h-[600px]">
-        <Card className={`flex-1 flex flex-col ${column.bgColor} border-2 shadow-sm transition-shadow hover:shadow-md`}>
+      <div ref={setDroppableRef} className={`flex flex-col h-full min-h-[600px] ${isOver ? 'ring-2 ring-indigo-400/50 rounded-lg' : ''}`}>
+        <Card className={`flex-1 flex flex-col ${column.bgColor} border-2 shadow-sm transition-shadow hover:shadow-md ${isOver ? 'shadow-lg' : ''}`}>
           <CardHeader className="pb-3 border-b-2 border-border/50">
             <CardTitle className={`text-base font-bold flex items-center justify-between ${column.color}`}>
               <span className="flex items-center gap-2">

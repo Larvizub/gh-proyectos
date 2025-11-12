@@ -6,6 +6,7 @@ import { Task, Project, ViewType, TaskStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
+import GanttChart from '@/components/tasks/GanttChart';
 import TaskEditorModal from '@/components/tasks/TaskEditorModal';
 import { LayoutList, LayoutGrid, Calendar, Plus, Clipboard, Activity, Eye, CheckCircle, ArrowDown, Minus, ArrowUp, Zap, Edit3, Trash2 } from 'lucide-react';
 import Select from '@/components/ui/select';
@@ -178,6 +179,18 @@ export default function ProjectDetailsPage() {
               <span className="text-sm font-medium hidden sm:inline">Kanban</span>
             </button>
             <button
+              onClick={() => setViewType('gantt')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
+                viewType === 'gantt' 
+                  ? 'bg-primary text-primary-foreground shadow-sm' 
+                  : 'hover:bg-muted text-muted-foreground'
+              }`}
+              title="Vista Gantt"
+            >
+              <Activity className="h-4 w-4" />
+              <span className="text-sm font-medium hidden sm:inline">Gantt</span>
+            </button>
+            <button
               onClick={() => setViewType('calendar')}
               className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
                 viewType === 'calendar' 
@@ -339,6 +352,10 @@ export default function ProjectDetailsPage() {
           onTaskStatusChange={handleTaskStatusChange}
           onTaskDelete={handleDeleteTask}
         />
+      )}
+
+      {viewType === 'gantt' && (
+        <GanttChart tasks={tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
       )}
 
       {viewType === 'list' && (
