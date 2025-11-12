@@ -8,6 +8,8 @@ export interface User {
   updatedAt: number;
 }
 
+export type SiteKey = 'CORPORATIVO' | 'CCCR' | 'CCCI' | 'CEVP';
+
 export interface Project {
   id: string;
   name: string;
@@ -15,6 +17,8 @@ export interface Project {
   color: string;
   ownerId: string;
   memberIds: string[];
+  // Sitios donde existe/estará replicado el proyecto (opcional)
+  sites?: SiteKey[];
   createdAt: number;
   updatedAt: number;
   status: 'active' | 'archived' | 'completed';

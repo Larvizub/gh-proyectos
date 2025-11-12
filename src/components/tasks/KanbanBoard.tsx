@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Task, TaskStatus } from '@/types';
 import { TaskCard } from './TaskCard';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Clipboard, Zap, Eye, CheckCircle2 } from 'lucide-react';
 import { 
   DndContext, 
   DragEndEvent, 
@@ -21,11 +22,12 @@ interface KanbanBoardProps {
   onTaskStatusChange: (taskId: string, newStatus: TaskStatus) => void;
 }
 
-const COLUMNS: { id: TaskStatus; label: string; color: string; bgColor: string; icon: string }[] = [
-  { id: 'todo', label: 'Por hacer', color: 'text-gray-700 dark:text-gray-300', bgColor: 'bg-gray-50 dark:bg-gray-900/50', icon: '📋' },
-  { id: 'in-progress', label: 'En progreso', color: 'text-blue-700 dark:text-blue-300', bgColor: 'bg-blue-50 dark:bg-blue-900/30', icon: '⚡' },
-  { id: 'review', label: 'En revisión', color: 'text-yellow-700 dark:text-yellow-300', bgColor: 'bg-yellow-50 dark:bg-yellow-900/30', icon: '👀' },
-  { id: 'completed', label: 'Completadas', color: 'text-green-700 dark:text-green-300', bgColor: 'bg-green-50 dark:bg-green-900/30', icon: '✅' },
+const COLUMNS: { id: TaskStatus; label: string; color: string; bgColor: string; icon: React.ReactNode }[] = [
+  // Make dark-mode column backgrounds very subtle: low-opacity dark tints so they don't look like bright pastel panels
+  { id: 'todo', label: 'Por hacer', color: 'text-gray-700 dark:text-gray-300', bgColor: 'bg-gray-50 dark:bg-gray-900/6', icon: <Clipboard className="h-5 w-5" /> },
+  { id: 'in-progress', label: 'En progreso', color: 'text-blue-700 dark:text-blue-300', bgColor: 'bg-blue-50 dark:bg-blue-900/6', icon: <Zap className="h-5 w-5" /> },
+  { id: 'review', label: 'En revisión', color: 'text-yellow-700 dark:text-yellow-300', bgColor: 'bg-yellow-50 dark:bg-yellow-900/6', icon: <Eye className="h-5 w-5" /> },
+  { id: 'completed', label: 'Completadas', color: 'text-green-700 dark:text-green-300', bgColor: 'bg-green-50 dark:bg-green-900/6', icon: <CheckCircle2 className="h-5 w-5" /> },
 ];
 
 interface SortableTaskCardProps {
@@ -85,10 +87,31 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange }: KanbanBo
       return;
     }
 
-    // Si se suelta sobre una columna (over.id es un TaskStatus)
-    const newStatus = over.id as TaskStatus;
     const taskId = active.id as string;
-    
+
+    // Determine newStatus in a robust way:
+    // - If over.id is one of the known column ids (TaskStatus), use it.
+    // - If over.id is another task id (dropped onto a card), use that task's status.
+    // - Otherwise ignore the drop.
+    const possibleStatuses: TaskStatus[] = ['todo', 'in-progress', 'review', 'completed'];
+    let newStatus: TaskStatus | undefined;
+
+    if (possibleStatuses.includes(over.id as TaskStatus)) {
+      newStatus = over.id as TaskStatus;
+    } else {
+      // maybe over.id is a task id
+      const targetTask = tasks.find(t => t.id === (over.id as string));
+      if (targetTask) {
+        newStatus = targetTask.status;
+      }
+    }
+
+    if (!newStatus) {
+      // couldn't resolve a valid column status — don't update
+      setActiveTask(null);
+      return;
+    }
+
     const task = tasks.find(t => t.id === taskId);
     if (task && task.status !== newStatus) {
       onTaskStatusChange(taskId, newStatus);
@@ -120,7 +143,7 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange }: KanbanBo
                 <CardHeader className="pb-3 border-b-2 border-border/50">
                   <CardTitle className={`text-base font-bold flex items-center justify-between ${column.color}`}>
                     <span className="flex items-center gap-2">
-                      <span className="text-xl">{column.icon}</span>
+                      <span className="text-xl text-current">{column.icon}</span>
                       {column.label}
                     </span>
                     <span className="text-sm bg-background/80 backdrop-blur-sm rounded-full px-3 py-1 font-semibold shadow-sm">
@@ -145,7 +168,10 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange }: KanbanBo
                     
                     {columnTasks.length === 0 && (
                       <div className="text-center text-sm text-muted-foreground py-12 px-4">
-                        <div className="text-4xl mb-2 opacity-30">{column.icon}</div>
+                        <div className="mb-2 opacity-30">
+                          {/* ícono grande */}
+                          {React.cloneElement(column.icon as any, { className: 'h-12 w-12 mx-auto' })}
+                        </div>
                         <p className="font-medium">No hay tareas</p>
                         <p className="text-xs mt-1">Arrastra tareas aquí</p>
                       </div>

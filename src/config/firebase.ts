@@ -60,4 +60,23 @@ export function getDatabaseForSite(site: SiteKey): Database {
   return dbInstance;
 }
 
+/**
+ * Resuelve la instancia de Database a usar en cliente según la selección del usuario.
+ * Si existe `localStorage.selectedSite` y coincide con un SiteKey conocido, retorna
+ * la instancia asociada; en otro caso retorna la base de datos por defecto `database`.
+ */
+export function resolveDatabase(): Database {
+  try {
+    if (typeof window === 'undefined') return database;
+    const s = localStorage.getItem('selectedSite') as SiteKey | null;
+    if (s && DATABASE_URLS[s]) {
+      return getDatabaseForSite(s);
+    }
+  } catch (err) {
+    // Si falla por cualquier motivo (e.g., acceso a localStorage en entorno protegido), usar por defecto
+    console.warn('resolveDatabase: could not read selectedSite from localStorage, falling back to default database', err);
+  }
+  return database;
+}
+
 export default app;

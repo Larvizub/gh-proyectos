@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
+import Select from '@/components/ui/select';
+import { CheckCircle, Calendar, Trophy } from 'lucide-react';
+import ColorPickerButton from '@/components/ui/ColorPickerButton';
 import { projectsService } from '@/services/firebase.service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,6 +17,27 @@ export default function NewProjectPage() {
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#6366f1');
   const [status, setStatus] = useState<'active' | 'planned' | 'completed'>('active');
+
+  const presetColors = [
+    '#111827', // gray-900
+    '#374151', // gray-700
+    '#64748b', // slate
+    '#0f172a', // slate-900
+    '#0ea5e9', // sky
+    '#06b6d4', // cyan
+    '#06b6d4',
+    '#38bdf8',
+    '#6366f1', // indigo
+    '#7c3aed',
+    '#8b5cf6', // violet
+    '#a78bfa',
+    '#ef4444', // red
+    '#f97316', // orange
+    '#f59e0b', // amber
+    '#10b981', // emerald
+    '#34d399',
+    '#ec4899', // pink
+  ];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,7 +93,7 @@ export default function NewProjectPage() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border-2 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 px-4 py-3 transition-all outline-none text-base"
+                className="w-full rounded-lg border-2 border-border bg-input text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 px-4 py-3 transition-all outline-none text-base"
                 placeholder="Ej: Desarrollo de App Móvil"
               />
             </div>
@@ -79,7 +103,7 @@ export default function NewProjectPage() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full rounded-lg border-2 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 px-4 py-3 transition-all outline-none resize-none text-base"
+                className="w-full rounded-lg border-2 border-border bg-input text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 px-4 py-3 transition-all outline-none resize-none text-base"
                 rows={5}
                 placeholder="Describe brevemente el objetivo y alcance del proyecto..."
               />
@@ -88,33 +112,35 @@ export default function NewProjectPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Color del proyecto</label>
-                <div className="flex items-center gap-3">
-                  <input 
-                    type="color" 
-                    value={color} 
-                    onChange={(e) => setColor(e.target.value)}
-                    className="h-12 w-20 rounded-lg border-2 border-border cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <div 
-                      className="h-12 rounded-lg shadow-sm border-2 transition-all"
-                      style={{ backgroundColor: color, borderColor: color }}
-                    />
-                  </div>
-                </div>
+                <ColorPickerButton
+                  color={color}
+                  onChange={setColor}
+                  presetColors={presetColors}
+                />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Estado inicial</label>
-                <select 
-                  value={status} 
-                  onChange={e => setStatus(e.target.value as any)} 
-                  className="w-full h-12 rounded-lg border-2 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 px-4 transition-all outline-none bg-background text-base"
-                >
-                  <option value="active">✅ Activo</option>
-                  <option value="planned">📅 Planeado</option>
-                  <option value="completed">🎉 Completado</option>
-                </select>
+                <Select value={status} onChange={(v) => setStatus(v as any)} className="w-full">
+                  <option value="active">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4" />
+                      Activo
+                    </div>
+                  </option>
+                  <option value="planned">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Planeado
+                    </div>
+                  </option>
+                  <option value="completed">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-4 w-4" />
+                      Completado
+                    </div>
+                  </option>
+                </Select>
               </div>
             </div>
 

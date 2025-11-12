@@ -4,6 +4,8 @@ applyTo: '**/*.ts'
 # Instrucciones de uso para el proyecto
 
 - Utiliza siempre pnpm.
+- Piensa profundamente en cada cambio que vayas a realizar.
+- No uses tanto texto en tus respuestas y opciones sino que sé más conciso.
 - Pregunta antes de subir cualquier cambio a github.
 - Todos los comentarios de github deben ser en español.
 - Utiliza shadcn components para los componentes UI.

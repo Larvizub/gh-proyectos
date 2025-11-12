@@ -83,12 +83,12 @@ export function Select({ id, label, helper, value, onChange, children, className
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           className={clsx(
-            'w-full rounded-md border border-emerald-600 bg-white/90 px-3 py-2 text-left text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-600',
+            'w-full rounded-md border border-input bg-input px-3 py-2 text-left text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring',
             'flex items-center justify-between',
           )}
         >
           <span className="truncate">{selected ? selected.label : ''}</span>
-          <svg className="h-4 w-4 text-slate-500 ml-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+          <svg className="h-4 w-4 text-muted-foreground ml-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
             <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
           </svg>
         </button>
@@ -97,7 +97,7 @@ export function Select({ id, label, helper, value, onChange, children, className
           <ul
             role="listbox"
             tabIndex={-1}
-            className="absolute z-40 mt-1 max-h-56 w-full overflow-auto rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+            className="absolute z-40 mt-1 max-h-56 w-full overflow-auto rounded-md bg-popover shadow-lg ring-1 ring-black/10 focus:outline-none"
           >
             {options.map((opt, idx) => (
               <li
@@ -111,7 +111,11 @@ export function Select({ id, label, helper, value, onChange, children, className
                 }}
                 className={clsx(
                   'cursor-pointer px-4 py-2 text-sm',
-                  value === opt.value ? 'bg-emerald-600 text-white' : activeIndex === idx ? 'bg-emerald-100 text-emerald-900' : 'text-slate-900'
+                  value === opt.value
+                    ? 'bg-primary text-primary-foreground'
+                    : activeIndex === idx
+                    ? 'bg-muted text-foreground'
+                    : 'text-foreground'
                 )}
               >
                 {opt.label}

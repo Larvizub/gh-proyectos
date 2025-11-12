@@ -6,8 +6,10 @@ import { Task, Project, ViewType, TaskStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
-import { TaskCard } from '@/components/tasks/TaskCard';
-import { LayoutList, LayoutGrid, Calendar, Plus } from 'lucide-react';
+import TaskEditorModal from '@/components/tasks/TaskEditorModal';
+import { LayoutList, LayoutGrid, Calendar, Plus, Clipboard, Activity, Eye, CheckCircle, ArrowDown, Minus, ArrowUp, Zap } from 'lucide-react';
+import Select from '@/components/ui/select';
+import DatePicker from '@/components/ui/DatePicker';
 import PageLoader from '@/components/PageLoader';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -17,6 +19,7 @@ export default function ProjectDetailsPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [viewType, setViewType] = useState<ViewType>('kanban');
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
 
@@ -25,6 +28,19 @@ export default function ProjectDetailsPage() {
   const [desc, setDesc] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
   const [status, setStatus] = useState<TaskStatus>('todo');
+  const [dueDate, setDueDate] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+
+  // Helper: convert a YYYY-MM-DD date string to a local midnight timestamp (ms)
+  const dateStringToTimestamp = (s: string) => {
+    if (!s) return undefined;
+    const parts = s.split('-');
+    if (parts.length !== 3) return undefined;
+    const y = Number(parts[0]);
+    const m = Number(parts[1]) - 1;
+    const d = Number(parts[2]);
+    return new Date(y, m, d).getTime();
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -53,12 +69,21 @@ export default function ProjectDetailsPage() {
 
     if (!project || !user) return;
 
+    // Validate required date fields
+    if (!startDate || !dueDate) {
+      toast.error('Por favor completa la fecha de inicio y la fecha de vencimiento.');
+      return;
+    }
+
     const payload: Partial<Task> = {
       title,
       description: desc,
       projectId: project.id,
       status,
       priority,
+  // store timestamps (ms) if provided (date-only, local midnight)
+  dueDate: dueDate ? dateStringToTimestamp(dueDate) : undefined,
+  startDate: startDate ? dateStringToTimestamp(startDate) : undefined,
       assigneeIds: [],
       creatorId: user.id,
       tags: [],
@@ -80,6 +105,8 @@ export default function ProjectDetailsPage() {
     setDesc('');
     setPriority('medium');
     setStatus('todo');
+    setDueDate('');
+    setStartDate('');
     setShowNewTaskForm(false);
   }
 
@@ -93,6 +120,8 @@ export default function ProjectDetailsPage() {
       }
     );
   }
+
+  
 
   return (
     <div className="space-y-6">
@@ -180,7 +209,7 @@ export default function ProjectDetailsPage() {
                   required 
                   value={title} 
                   onChange={e => setTitle(e.target.value)} 
-                  className="w-full rounded-lg border-2 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 px-4 py-2.5 transition-all outline-none" 
+                  className="w-full rounded-lg border-2 border-border bg-input text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 px-4 py-2.5 transition-all outline-none" 
                   placeholder="Ej: Diseñar mockups de la página principal" 
                 />
               </div>
@@ -190,7 +219,7 @@ export default function ProjectDetailsPage() {
                 <textarea 
                   value={desc} 
                   onChange={e => setDesc(e.target.value)} 
-                  className="w-full rounded-lg border-2 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 px-4 py-2.5 transition-all outline-none resize-none" 
+                  className="w-full rounded-lg border-2 border-border bg-input text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 px-4 py-2.5 transition-all outline-none resize-none" 
                   rows={4} 
                   placeholder="Describe los detalles de la tarea..."
                 />
@@ -199,30 +228,74 @@ export default function ProjectDetailsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Estado inicial</label>
-                  <select 
-                    value={status} 
-                    onChange={e => setStatus(e.target.value as TaskStatus)} 
-                    className="w-full rounded-lg border-2 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 px-4 py-2.5 transition-all outline-none bg-background"
-                  >
-                    <option value="todo">📋 Por hacer</option>
-                    <option value="in-progress">⚡ En progreso</option>
-                    <option value="review">👀 En revisión</option>
-                    <option value="completed">✅ Completada</option>
-                  </select>
+                    <Select value={status} onChange={(v) => setStatus(v as TaskStatus)} className="w-full">
+                      <option value="todo">
+                        <div className="flex items-center gap-2">
+                          <Clipboard className="h-4 w-4" />
+                          Por hacer
+                        </div>
+                      </option>
+                      <option value="in-progress">
+                        <div className="flex items-center gap-2">
+                          <Activity className="h-4 w-4" />
+                          En progreso
+                        </div>
+                      </option>
+                      <option value="review">
+                        <div className="flex items-center gap-2">
+                          <Eye className="h-4 w-4" />
+                          En revisión
+                        </div>
+                      </option>
+                      <option value="completed">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4" />
+                          Completada
+                        </div>
+                      </option>
+                    </Select>
                 </div>
                 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Prioridad</label>
-                  <select 
-                    value={priority} 
-                    onChange={e => setPriority(e.target.value as any)} 
-                    className="w-full rounded-lg border-2 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 px-4 py-2.5 transition-all outline-none bg-background"
-                  >
-                    <option value="low">🟢 Baja</option>
-                    <option value="medium">🟡 Media</option>
-                    <option value="high">🟠 Alta</option>
-                    <option value="urgent">🔴 Urgente</option>
-                  </select>
+                  <Select value={priority} onChange={(v) => setPriority(v as any)} className="w-full">
+                    <option value="low">
+                      <div className="flex items-center gap-2">
+                        <ArrowDown className="h-4 w-4" />
+                        Baja
+                      </div>
+                    </option>
+                    <option value="medium">
+                      <div className="flex items-center gap-2">
+                        <Minus className="h-4 w-4" />
+                        Media
+                      </div>
+                    </option>
+                    <option value="high">
+                      <div className="flex items-center gap-2">
+                        <ArrowUp className="h-4 w-4" />
+                        Alta
+                      </div>
+                    </option>
+                    <option value="urgent">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4" />
+                        Urgente
+                      </div>
+                    </option>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1">Fecha de inicio <span className="text-red-500">*</span></label>
+                  <DatePicker value={startDate} onChange={v => setStartDate(v)} placeholder="dd/mm/aaaa" ariaLabel="Fecha de inicio" required />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1">Fecha de vencimiento <span className="text-red-500">*</span></label>
+                  <DatePicker value={dueDate} onChange={v => setDueDate(v)} placeholder="dd/mm/aaaa" ariaLabel="Fecha de vencimiento" required />
                 </div>
               </div>
               
@@ -249,29 +322,58 @@ export default function ProjectDetailsPage() {
       {viewType === 'kanban' && (
         <KanbanBoard 
           tasks={tasks} 
-          onTaskClick={(task) => console.log('Click en tarea:', task)}
+          onTaskClick={(task) => setSelectedTask(task)}
           onTaskStatusChange={handleTaskStatusChange}
         />
       )}
 
       {viewType === 'list' && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {tasks.length === 0 ? (
-            <Card className="col-span-full">
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <p className="text-muted-foreground">No hay tareas en este proyecto</p>
-              </CardContent>
-            </Card>
-          ) : (
-            tasks.map(task => (
-              <TaskCard 
-                key={task.id} 
-                task={task}
-                onClick={() => console.log('Click en tarea:', task)}
-              />
-            ))
-          )}
+        <div className="overflow-auto">
+          <table className="w-full table-auto border-collapse">
+            <thead>
+              <tr className="text-left border-b">
+                <th className="px-4 py-2">Título</th>
+                <th className="px-4 py-2">Estado</th>
+                <th className="px-4 py-2">Prioridad</th>
+                <th className="px-4 py-2">Vencimiento</th>
+                <th className="px-4 py-2">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tasks.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-8">No hay tareas en este proyecto</td>
+                </tr>
+              ) : (
+                tasks.map(task => (
+                  <tr key={task.id} className="border-b hover:bg-muted/10">
+                    <td className="px-4 py-3">{task.title}</td>
+                    <td className="px-4 py-3">
+                      {/* Mostrar estado como badge; edición solo vía botón Editar */}
+                      <div>
+                        {task.status === 'todo' && <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100">Por hacer</span>}
+                        {task.status === 'in-progress' && <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">En progreso</span>}
+                        {task.status === 'review' && <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">En revisión</span>}
+                        {task.status === 'completed' && <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">Completada</span>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">{task.priority}</td>
+                    <td className="px-4 py-3">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="secondary" className="font-semibold" onClick={() => setSelectedTask(task)}>Editar</Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
+      )}
+
+      {selectedTask && (
+        <TaskEditorModal task={selectedTask} onClose={() => setSelectedTask(null)} onSaved={() => {/* tasks listener will update */}} />
       )}
 
       {viewType === 'calendar' && (
@@ -282,6 +384,8 @@ export default function ProjectDetailsPage() {
           </CardContent>
         </Card>
       )}
+
+      
     </div>
   );
 }

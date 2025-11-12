@@ -125,7 +125,7 @@ export function SubTasks({ task, onUpdate }: SubTasksProps) {
               value={newSubTaskTitle}
               onChange={(e) => setNewSubTaskTitle(e.target.value)}
               placeholder="Título de la subtarea..."
-              className="flex-1 rounded-md border px-3 py-2 text-sm"
+              className="flex-1 rounded-md border bg-input text-foreground placeholder:text-muted-foreground px-3 py-2 text-sm"
               disabled={submitting}
               autoFocus
             />

@@ -1,34 +1,39 @@
-import { database } from '@/config/firebase';
+import { database, getDatabaseForSite, resolveDatabase } from '@/config/firebase';
 import { ref, push, set, get, update, remove, onValue, off, query, orderByChild, equalTo } from 'firebase/database';
 import { Project, Task, Comment, User } from '@/types';
 
 // Proyectos
 export const projectsService = {
   create: async (project: Omit<Project, 'id'>) => {
-    const projectsRef = ref(database, 'projects');
+    const dbToUse = resolveDatabase();
+    const projectsRef = ref(dbToUse, 'projects');
     const newProjectRef = push(projectsRef);
-    await set(newProjectRef, { ...project, id: newProjectRef.key });
+    await set(newProjectRef, { ...project, id: newProjectRef.key, createdAt: Date.now() });
     return newProjectRef.key;
   },
 
   update: async (projectId: string, updates: Partial<Project>) => {
-    const projectRef = ref(database, `projects/${projectId}`);
+  const dbToUse = resolveDatabase();
+  const projectRef = ref(dbToUse, `projects/${projectId}`);
     await update(projectRef, { ...updates, updatedAt: Date.now() });
   },
 
   delete: async (projectId: string) => {
-    const projectRef = ref(database, `projects/${projectId}`);
+  const dbToUse = resolveDatabase();
+  const projectRef = ref(dbToUse, `projects/${projectId}`);
     await remove(projectRef);
   },
 
   get: async (projectId: string): Promise<Project | null> => {
-    const projectRef = ref(database, `projects/${projectId}`);
-    const snapshot = await get(projectRef);
+  const dbToUse = resolveDatabase();
+  const projectRef = ref(dbToUse, `projects/${projectId}`);
+  const snapshot = await get(projectRef);
     return snapshot.exists() ? snapshot.val() : null;
   },
 
   getAll: async (): Promise<Project[]> => {
-    const projectsRef = ref(database, 'projects');
+  const dbToUse = resolveDatabase();
+  const projectsRef = ref(dbToUse, 'projects');
     const snapshot = await get(projectsRef);
     if (!snapshot.exists()) return [];
     
@@ -40,7 +45,8 @@ export const projectsService = {
   },
 
   listen: (callback: (projects: Project[]) => void) => {
-    const projectsRef = ref(database, 'projects');
+  const dbToUse = resolveDatabase();
+  const projectsRef = ref(dbToUse, 'projects');
     onValue(projectsRef, (snapshot) => {
       const projects: Project[] = [];
       snapshot.forEach((child) => {
@@ -55,32 +61,38 @@ export const projectsService = {
 // Tareas
 export const tasksService = {
   create: async (task: Omit<Task, 'id'>) => {
-    const tasksRef = ref(database, 'tasks');
+  const dbToUse = resolveDatabase();
+  const tasksRef = ref(dbToUse, 'tasks');
     const newTaskRef = push(tasksRef);
     await set(newTaskRef, { ...task, id: newTaskRef.key });
     return newTaskRef.key;
   },
 
   update: async (taskId: string, updates: Partial<Task>) => {
-    const taskRef = ref(database, `tasks/${taskId}`);
+  const dbToUse = resolveDatabase();
+  const taskRef = ref(dbToUse, `tasks/${taskId}`);
     await update(taskRef, { ...updates, updatedAt: Date.now() });
   },
 
   delete: async (taskId: string) => {
-    const taskRef = ref(database, `tasks/${taskId}`);
+    const dbToUse = resolveDatabase();
+    const taskRef = ref(dbToUse, `tasks/${taskId}`);
     await remove(taskRef);
   },
 
   get: async (taskId: string): Promise<Task | null> => {
-    const taskRef = ref(database, `tasks/${taskId}`);
+    const s = typeof window !== 'undefined' ? localStorage.getItem('selectedSite') : null;
+    const dbToUse = s ? getDatabaseForSite(s as any) : database;
+    const taskRef = ref(dbToUse, `tasks/${taskId}`);
     const snapshot = await get(taskRef);
     return snapshot.exists() ? snapshot.val() : null;
   },
 
   getByProject: async (projectId: string): Promise<Task[]> => {
-    const tasksRef = ref(database, 'tasks');
-    const tasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId));
-    const snapshot = await get(tasksQuery);
+  const dbToUse = resolveDatabase();
+  const tasksRef = ref(dbToUse, 'tasks');
+  const tasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId));
+  const snapshot = await get(tasksQuery);
     
     if (!snapshot.exists()) return [];
     
@@ -92,8 +104,9 @@ export const tasksService = {
   },
 
   listen: (projectId: string, callback: (tasks: Task[]) => void) => {
-    const tasksRef = ref(database, 'tasks');
-    const tasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId));
+  const dbToUse = resolveDatabase();
+  const tasksRef = ref(dbToUse, 'tasks');
+  const tasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId));
     
     onValue(tasksQuery, (snapshot) => {
       const tasks: Task[] = [];
@@ -110,25 +123,29 @@ export const tasksService = {
 // Comentarios
 export const commentsService = {
   create: async (comment: Omit<Comment, 'id'>) => {
-    const commentsRef = ref(database, 'comments');
-    const newCommentRef = push(commentsRef);
+  const dbToUse = resolveDatabase();
+  const commentsRef = ref(dbToUse, 'comments');
+  const newCommentRef = push(commentsRef);
     await set(newCommentRef, { ...comment, id: newCommentRef.key });
     return newCommentRef.key;
   },
 
   update: async (commentId: string, updates: Partial<Comment>) => {
-    const commentRef = ref(database, `comments/${commentId}`);
+  const dbToUse = resolveDatabase();
+  const commentRef = ref(dbToUse, `comments/${commentId}`);
     await update(commentRef, { ...updates, updatedAt: Date.now() });
   },
 
   delete: async (commentId: string) => {
-    const commentRef = ref(database, `comments/${commentId}`);
+  const dbToUse = resolveDatabase();
+  const commentRef = ref(dbToUse, `comments/${commentId}`);
     await remove(commentRef);
   },
 
   getByTask: async (taskId: string): Promise<Comment[]> => {
-    const commentsRef = ref(database, 'comments');
-    const commentsQuery = query(commentsRef, orderByChild('taskId'), equalTo(taskId));
+  const dbToUse = resolveDatabase();
+  const commentsRef = ref(dbToUse, 'comments');
+  const commentsQuery = query(commentsRef, orderByChild('taskId'), equalTo(taskId));
     const snapshot = await get(commentsQuery);
     
     if (!snapshot.exists()) return [];
@@ -141,8 +158,9 @@ export const commentsService = {
   },
 
   listen: (taskId: string, callback: (comments: Comment[]) => void) => {
-    const commentsRef = ref(database, 'comments');
-    const commentsQuery = query(commentsRef, orderByChild('taskId'), equalTo(taskId));
+  const dbToUse = resolveDatabase();
+  const commentsRef = ref(dbToUse, 'comments');
+  const commentsQuery = query(commentsRef, orderByChild('taskId'), equalTo(taskId));
     
     onValue(commentsQuery, (snapshot) => {
       const comments: Comment[] = [];
@@ -159,24 +177,28 @@ export const commentsService = {
 // Usuarios
 export const usersService = {
   create: async (user: User) => {
-    const userRef = ref(database, `users/${user.id}`);
+  const dbToUse = resolveDatabase();
+  const userRef = ref(dbToUse, `users/${user.id}`);
     await set(userRef, user);
   },
 
   update: async (userId: string, updates: Partial<User>) => {
-    const userRef = ref(database, `users/${userId}`);
-    await update(userRef, { ...updates, updatedAt: Date.now() });
+  const dbToUse = resolveDatabase();
+  const userRef = ref(dbToUse, `users/${userId}`);
+  await update(userRef, { ...updates, updatedAt: Date.now() });
   },
 
   get: async (userId: string): Promise<User | null> => {
-    const userRef = ref(database, `users/${userId}`);
-    const snapshot = await get(userRef);
+  const dbToUse = resolveDatabase();
+  const userRef = ref(dbToUse, `users/${userId}`);
+  const snapshot = await get(userRef);
     return snapshot.exists() ? snapshot.val() : null;
   },
 
   getAll: async (): Promise<User[]> => {
-    const usersRef = ref(database, 'users');
-    const snapshot = await get(usersRef);
+  const dbToUse = resolveDatabase();
+  const usersRef = ref(dbToUse, 'users');
+  const snapshot = await get(usersRef);
     if (!snapshot.exists()) return [];
     
     const users: User[] = [];

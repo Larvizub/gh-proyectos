@@ -56,6 +56,10 @@ async function createCalendarEventViaGraph(accessToken: string, userEmail: strin
   return res.data;
 }
 
+// NOTE: multi-DB admin helper removed — this project now performs writes from clients to the
+// selected site's Realtime Database. The previous server-side multiWrite/replication helpers
+// were deleted as part of the 'multiWrite' decommission.
+
 // Helper to extract participant emails from a project/task structure
 function extractEmails(list: any[]): string[] {
   if (!Array.isArray(list)) return [];
@@ -171,3 +175,130 @@ export const sendNotificationEmail = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError('internal', 'Failed to send email');
   }
 });
+
+// Callable: validateSiteAccess -> server-side domain validation for the authenticated user
+// Payload: { site: 'CORPORATIVO'|'CCCR'|'CCCI'|'CEVP' }
+export const validateSiteAccess = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const site: string | undefined = data?.site;
+  // Optional: the email the client used to sign in (e.g. result.user.email after signInWithPopup)
+  const loginEmailRaw: string | undefined = data?.loginEmail;
+  const loginEmail = loginEmailRaw ? String(loginEmailRaw).toLowerCase() : undefined;
+  // Log presence of loginEmail (mask actual value in logs for privacy)
+  try {
+    functions.logger.log('validateSiteAccess: loginEmail present?', { hasLoginEmail: !!loginEmail });
+  } catch (err) {
+    // ignore logging failures
+  }
+  if (!site) {
+    throw new functions.https.HttpsError('invalid-argument', 'site is required');
+  }
+
+  const allowedDomains: Record<string, string> = {
+    CORPORATIVO: 'grupoheroica.com',
+    CCCR: 'costaricacc.com',
+    CCCI: 'cccartagena.com',
+    CEVP: 'valledelpacifico.co',
+  };
+
+  const expectedDomain = allowedDomains[site];
+  if (!expectedDomain) {
+    throw new functions.https.HttpsError('invalid-argument', `Unknown site: ${site}`);
+  }
+
+  const emails = new Set<string>();
+  // primary email from token
+  try {
+    if (context.auth.token && context.auth.token.email) emails.add(String(context.auth.token.email).toLowerCase());
+  } catch (err) {
+    // ignore
+  }
+
+  // fetch user record to get providerData emails when available
+  try {
+    const userRecord = await admin.auth().getUser(context.auth.uid);
+    if (userRecord.email) emails.add(String(userRecord.email).toLowerCase());
+    if (Array.isArray(userRecord.providerData)) {
+      for (const pd of userRecord.providerData) {
+        if ((pd as any).email) emails.add(String((pd as any).email).toLowerCase());
+      }
+    }
+  } catch (err) {
+    functions.logger.warn('validateSiteAccess: failed to fetch userRecord', err);
+  }
+
+  const expectedLower = expectedDomain.toLowerCase();
+
+  // Helper to check domain match for an email
+  const emailMatchesDomain = (e?: string) => {
+    if (!e) return false;
+    const parts = e.split('@');
+    if (parts.length < 2) return false;
+    const d = parts[1];
+    return d === expectedLower || d.endsWith(`.${expectedLower}`);
+  };
+
+  // First, check if any of the canonical emails gathered from token/userRecord/providerData match the expected domain
+  const matched = Array.from(emails).some((e) => emailMatchesDomain(e));
+
+  // If not matched, but the client supplied the email that they used to sign in, allow validation based on that
+  // This addresses cases where the tenant maps the user's email into an alias (e.g. guest/converted UPN). We still log a warning
+  // when the loginEmail is not present in the server-side userRecord/providerData.
+  if (!matched && loginEmail) {
+    if (emailMatchesDomain(loginEmail)) {
+      // Strict mode (option A): require that the provided loginEmail is associated with this authenticated user.
+      // Attempt to resolve the user by that email and ensure the uid matches the caller's uid.
+      try {
+        const found = await admin.auth().getUserByEmail(loginEmail).catch(() => null);
+        if (!found) {
+          functions.logger.warn('validateSiteAccess: loginEmail not found in Auth', { site, expectedDomain, loginEmail, returnedEmails: Array.from(emails) });
+          throw new functions.https.HttpsError('permission-denied', `El correo usado para iniciar sesión (${loginEmail}) no está asociado a la cuenta autenticada.`);
+        }
+        if (found.uid !== context.auth.uid) {
+          functions.logger.warn('validateSiteAccess: loginEmail found but uid mismatch', { site, expectedDomain, loginEmail, foundUid: found.uid, authUid: context.auth.uid });
+          throw new functions.https.HttpsError('permission-denied', `El correo usado para iniciar sesión (${loginEmail}) no corresponde al usuario autenticado.`);
+        }
+
+        // Associated and matches uid -> accept
+        return { success: true, uid: context.auth.uid, emails: Array.from(emails), loginEmail };
+      } catch (err: any) {
+        // Re-throw HttpsError or wrap others
+        if (err instanceof functions.https.HttpsError) throw err;
+        functions.logger.warn('validateSiteAccess: error verifying loginEmail association', { err: err?.message || err, site, loginEmail });
+        throw new functions.https.HttpsError('internal', 'Error verificando asociación del correo de inicio de sesión');
+      }
+    }
+  }
+
+  if (!matched) {
+    // Heuristic: accept aliases where the local-part encodes the original domain (e.g. 'user_costaricacc.com#ext#@other.onmicrosoft.com')
+    try {
+      const aliasMatch = Array.from(emails).some((e) => {
+        const parts = e.split('@');
+        if (parts.length < 2) return false;
+        const local = parts[0] || '';
+        const expectedNoDot = expectedLower.replace(/\./g, '');
+        return local.includes(expectedLower) || local.includes(expectedNoDot);
+      });
+      if (aliasMatch) {
+        functions.logger.warn('validateSiteAccess: alias local-part matches expected domain, allowing login with note', { site, expectedDomain, returnedEmails: Array.from(emails) });
+        return { success: true, uid: context.auth.uid, emails: Array.from(emails), note: 'validated_via_alias_localpart' };
+      }
+    } catch (err) {
+      // ignore heuristic errors
+    }
+
+    functions.logger.warn('validateSiteAccess: domain mismatch', { site, expectedDomain, returnedEmails: Array.from(emails), loginEmail });
+    throw new functions.https.HttpsError('permission-denied', `Dominio no autorizado para ${site}. Correos devueltos: ${Array.from(emails).join(', ')}. Debes usar una cuenta de ${expectedDomain}.`, { returnedEmails: Array.from(emails) });
+  }
+
+  return { success: true, uid: context.auth.uid, emails: Array.from(emails) };
+});
+
+// multiWrite and its replication processor were removed as part of the decommission.
+// Clients now write directly to their selected site's Realtime Database. If you need
+// server-side replication or atomic multi-db writes in the future, reintroduce a
+// focused replication function or use a queue/worker approach.

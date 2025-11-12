@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, FolderKanban } from 'lucide-react';
+import { Plus, FolderKanban, CheckCircle, Calendar, Trophy, Users, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { projectsService } from '@/services/firebase.service';
@@ -92,7 +92,22 @@ export function ProjectsPage() {
                         ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100'
                         : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
                     }`}>
-                      {project.status === 'active' ? '✅ Activo' : project.status === 'completed' ? '🎉 Completado' : '📅 Planeado'}
+                      {project.status === 'active' ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 inline-block mr-2" />
+                          Activo
+                        </>
+                      ) : project.status === 'completed' ? (
+                        <>
+                          <Trophy className="h-4 w-4 inline-block mr-2" />
+                          Completado
+                        </>
+                      ) : (
+                        <>
+                          <Calendar className="h-4 w-4 inline-block mr-2" />
+                          Planeado
+                        </>
+                      )}
                     </span>
                   </div>
                   <CardDescription className="line-clamp-2 mt-3 text-base leading-relaxed">
@@ -102,15 +117,25 @@ export function ProjectsPage() {
                 <CardContent className="pt-0">
                   <div className="flex items-center justify-between text-sm bg-muted/50 rounded-lg p-3">
                     <span className="flex items-center gap-2 font-medium">
-                      <span className="text-lg">👥</span>
-                      {project.memberIds.length} miembros
+                      <Users className="h-4 w-4" />
+                      <span>{project.memberIds.length} miembros</span>
                     </span>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       project.ownerId === user?.id 
                         ? 'bg-primary/20 text-primary' 
                         : 'bg-muted text-muted-foreground'
                     }`}>
-                      {project.ownerId === user?.id ? '👑 Propietario' : '🤝 Miembro'}
+                      {project.ownerId === user?.id ? (
+                        <>
+                          <Trophy className="h-3.5 w-3.5 inline-block mr-1" />
+                          Propietario
+                        </>
+                      ) : (
+                        <>
+                          <User className="h-3.5 w-3.5 inline-block mr-1" />
+                          Miembro
+                        </>
+                      )}
                     </span>
                   </div>
                 </CardContent>

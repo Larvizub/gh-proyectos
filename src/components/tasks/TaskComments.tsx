@@ -127,7 +127,7 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Escribe un comentario..."
-            className="flex-1 rounded-md border px-3 py-2 text-sm resize-none"
+            className="flex-1 rounded-md border bg-input text-foreground placeholder:text-muted-foreground px-3 py-2 text-sm resize-none"
             rows={2}
             disabled={submitting}
           />

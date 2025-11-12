@@ -1,7 +1,6 @@
 import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {
@@ -10,10 +9,10 @@ interface HeaderProps {
 
 export function Header({ className }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
-  const { user, signOut } = useAuth();
 
   return (
     <header className={cn(
+      // `sticky` es suficiente para ser un ancestro posicionado para el botón
       'sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60',
       className
     )}>
@@ -32,22 +31,13 @@ export function Header({ className }: HeaderProps) {
           </h1>
         </div>
 
-        <div className="flex items-center gap-4">
-          {user && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {user.displayName}
-              </span>
-              {user.photoURL && (
-                <img 
-                  src={user.photoURL} 
-                  alt={user.displayName} 
-                  className="h-8 w-8 rounded-full"
-                />
-              )}
-            </div>
-          )}
+        {/* Mantener espacio a la derecha en la barra, el botón real se posiciona
+            de forma absoluta en la esquina superior derecha para cumplir el
+            requerimiento. */}
+        <div className="flex items-center gap-4" />
 
+        {/* Botón de tema en la esquina superior derecha */}
+        <div className="absolute right-4 top-3">
           <Button
             variant="ghost"
             size="icon"
@@ -60,15 +50,6 @@ export function Header({ className }: HeaderProps) {
               <Sun className="h-5 w-5" />
             )}
           </Button>
-
-          {user && (
-            <Button
-              variant="outline"
-              onClick={signOut}
-            >
-              Cerrar sesión
-            </Button>
-          )}
         </div>
       </div>
     </header>

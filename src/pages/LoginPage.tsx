@@ -84,6 +84,15 @@ export function LoginPage() {
               <option value="CCCI">CCCI</option>
               <option value="CEVP">CEVP</option>
             </Select>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Dominio esperado para este recinto: {
+                site === 'CORPORATIVO' ? 'grupoheroica.com' :
+                site === 'CCCR' ? 'costaricacc.com' :
+                site === 'CCCI' ? 'cccartagena.com' :
+                site === 'CEVP' ? 'valledelpacifico.co' :
+                ''
+              }
+            </p>
           </div>
         </CardHeader>
         <CardContent>
