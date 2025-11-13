@@ -1,8 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, FolderKanban, Settings, Users, User, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { Home, FolderKanban, Settings, Users, User, LogOut, Key } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+
 
 interface SidebarProps {
   className?: string;
@@ -28,27 +30,16 @@ const navigationItems = [
   },
 ];
 
-const adminNavigationItems = [
-  {
-    title: 'Administración',
-    href: '/admin',
-    icon: Users,
-  },
-  {
-    title: 'Usuarios',
-    href: '/admin/users',
-    icon: User,
-  },
-];
+// adminNavigationItems intentionally removed; admin submenu rendered dynamically when user is admin
 
 export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { theme } = useTheme();
+  const isAdmin = !!(user && typeof user.role === 'string' && user.role.toLowerCase() === 'admin');
+  const [adminOpen, setAdminOpen] = useState(false);
 
-  const allItems = user?.role === 'admin'
-    ? [...navigationItems, ...adminNavigationItems]
-    : navigationItems;
+  const allItems = navigationItems;
 
   return (
     <>
@@ -67,16 +58,37 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
                 />
               </div>
               <div className="flex flex-col gap-2">
-              {allItems.map((item) => {
-                const isActive = location.pathname === item.href;
-                const Icon = item.icon;
-                return (
-                  <Link key={item.href} to={item.href} title={item.title} className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium', isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground') } onClick={onClose}>
-                    <Icon className="h-4 w-4" />
-                    <span className="ml-2 whitespace-nowrap">{item.title}</span>
-                  </Link>
-                );
-              })}
+                {allItems.map((item) => {
+                  const isActive = location.pathname === item.href;
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.href} to={item.href} title={item.title} className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium', isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground') } onClick={onClose}>
+                      <Icon className="h-4 w-4" />
+                      <span className="ml-2 whitespace-nowrap">{item.title}</span>
+                    </Link>
+                  );
+                })}
+
+                {isAdmin ? (
+                  <div>
+                    <button type="button" onClick={() => setAdminOpen((s) => !s)} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground w-full">
+                      <Users className="h-4 w-4" />
+                      <span className="ml-2 whitespace-nowrap">Administración</span>
+                    </button>
+                    {adminOpen ? (
+                      <div className="mt-2 ml-4 flex flex-col gap-1">
+                        <Link to="/admin/users" className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium', location.pathname === '/admin/users' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground')}>
+                          <User className="h-4 w-4" />
+                          <span className="ml-2 whitespace-nowrap">Usuarios</span>
+                        </Link>
+                        <Link to="/admin/roles" className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium', location.pathname === '/admin/roles' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground')}>
+                          <Key className="h-4 w-4" />
+                          <span className="ml-2 whitespace-nowrap">Roles</span>
+                        </Link>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -133,6 +145,27 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
                 </Link>
               );
             })}
+
+            {isAdmin ? (
+              <div className="mt-2">
+                <button type="button" onClick={() => setAdminOpen((s: boolean) => !s)} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all justify-center group-hover:justify-start text-muted-foreground hover:bg-accent hover:text-accent-foreground w-full">
+                  <Users className="h-4 w-4" />
+                  <span className="ml-2 hidden group-hover:inline-block whitespace-nowrap">Administración</span>
+                </button>
+                {adminOpen ? (
+                  <div className="mt-2 ml-2 flex flex-col gap-1">
+                    <Link to="/admin/users" className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all justify-center group-hover:justify-start overflow-hidden', location.pathname === '/admin/users' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground')}>
+                      <User className="h-4 w-4" />
+                      <span className="ml-2 hidden group-hover:inline-block whitespace-nowrap">Usuarios</span>
+                    </Link>
+                    <Link to="/admin/roles" className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all justify-center group-hover:justify-start overflow-hidden', location.pathname === '/admin/roles' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground')}>
+                      <Key className="h-4 w-4" />
+                      <span className="ml-2 hidden group-hover:inline-block whitespace-nowrap">Roles</span>
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
         {/* Zona de usuario en la parte inferior */}
@@ -160,6 +193,7 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
               </button>
             </>
           ) : null}
+          
         </div>
       </nav>
       </aside>

@@ -196,6 +196,133 @@ export const upsertUser = functions.https.onCall(async (data, context) => {
   }
 });
 
+// Helper to manage secondary admin apps cache across callables
+const __appsByDb: Record<string, admin.app.App> = (global as any).__appsByDb || ((global as any).__appsByDb = {});
+
+async function ensureAdminAppForDb(dbUrl?: string) {
+  let adminApp: admin.app.App = admin.app();
+  if (dbUrl) {
+    if (!__appsByDb[dbUrl]) {
+      try {
+        __appsByDb[dbUrl] = admin.initializeApp({ databaseURL: dbUrl } as any, `db-${Object.keys(__appsByDb).length + 1}`);
+      } catch (e) {
+        functions.logger.warn('ensureAdminAppForDb: error creating secondary app', e);
+        __appsByDb[dbUrl] = admin.app();
+      }
+    }
+    adminApp = __appsByDb[dbUrl];
+  }
+  return adminApp;
+}
+
+// Callable: createRole -> create a role record in the target Realtime Database (admin write)
+export const createRole = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  const role = data?.role;
+  const dbUrl = data?.dbUrl;
+  if (!role || !role.name) throw new functions.https.HttpsError('invalid-argument', 'role.name is required');
+
+  try {
+    const adminApp = await ensureAdminAppForDb(dbUrl);
+    // Basic server-side RBAC: require caller to already have role 'admin' in that DB
+    try {
+      const callerRef = adminApp.database().ref(`/users/${context.auth.uid}`);
+      const callerSnap = await callerRef.once('value');
+      const caller = callerSnap.exists() ? callerSnap.val() : null;
+      if (!caller || caller.role !== 'admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Caller is not an admin for the target site');
+      }
+    } catch (err) {
+      if (err instanceof functions.https.HttpsError) throw err;
+      functions.logger.warn('createRole: failed to verify caller admin status', err);
+      throw new functions.https.HttpsError('internal', 'Failed to verify caller admin status');
+    }
+
+    const rolesRef = adminApp.database().ref('/roles');
+    const newRef = rolesRef.push();
+    const payload = { id: newRef.key, name: role.name, modules: role.modules || {}, createdAt: Date.now(), updatedAt: Date.now() };
+    await newRef.set(payload);
+    return { success: true, role: payload };
+  } catch (err: any) {
+    functions.logger.error('createRole error', err?.message || err);
+    if (err instanceof functions.https.HttpsError) throw err;
+    throw new functions.https.HttpsError('internal', 'Failed to create role');
+  }
+});
+
+// Callable: updateRole -> update a role record in the target Realtime Database (admin write)
+export const updateRole = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  const roleId = data?.roleId;
+  const updates = data?.updates;
+  const dbUrl = data?.dbUrl;
+  if (!roleId || !updates) throw new functions.https.HttpsError('invalid-argument', 'roleId and updates are required');
+
+  try {
+    const adminApp = await ensureAdminAppForDb(dbUrl);
+    // verify caller is admin
+    try {
+      const callerRef = adminApp.database().ref(`/users/${context.auth.uid}`);
+      const callerSnap = await callerRef.once('value');
+      const caller = callerSnap.exists() ? callerSnap.val() : null;
+      if (!caller || caller.role !== 'admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Caller is not an admin for the target site');
+      }
+    } catch (err) {
+      if (err instanceof functions.https.HttpsError) throw err;
+      functions.logger.warn('updateRole: failed to verify caller admin status', err);
+      throw new functions.https.HttpsError('internal', 'Failed to verify caller admin status');
+    }
+
+    const roleRef = adminApp.database().ref(`/roles/${roleId}`);
+    const snap = await roleRef.once('value');
+    if (!snap.exists()) throw new functions.https.HttpsError('not-found', 'Role not found');
+
+    const sanitized: any = { ...updates };
+    if (sanitized.updatedAt === undefined) sanitized.updatedAt = Date.now();
+    await roleRef.update(sanitized);
+    const updatedSnap = await roleRef.once('value');
+    return { success: true, role: updatedSnap.val() };
+  } catch (err: any) {
+    functions.logger.error('updateRole error', err?.message || err);
+    if (err instanceof functions.https.HttpsError) throw err;
+    throw new functions.https.HttpsError('internal', 'Failed to update role');
+  }
+});
+
+// Callable: deleteRole -> admin delete
+export const deleteRole = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  const roleId = data?.roleId;
+  const dbUrl = data?.dbUrl;
+  if (!roleId) throw new functions.https.HttpsError('invalid-argument', 'roleId is required');
+
+  try {
+    const adminApp = await ensureAdminAppForDb(dbUrl);
+    // verify admin
+    try {
+      const callerRef = adminApp.database().ref(`/users/${context.auth.uid}`);
+      const callerSnap = await callerRef.once('value');
+      const caller = callerSnap.exists() ? callerSnap.val() : null;
+      if (!caller || caller.role !== 'admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Caller is not an admin for the target site');
+      }
+    } catch (err) {
+      if (err instanceof functions.https.HttpsError) throw err;
+      functions.logger.warn('deleteRole: failed to verify caller admin status', err);
+      throw new functions.https.HttpsError('internal', 'Failed to verify caller admin status');
+    }
+
+    const roleRef = adminApp.database().ref(`/roles/${roleId}`);
+    await roleRef.remove();
+    return { success: true };
+  } catch (err: any) {
+    functions.logger.error('deleteRole error', err?.message || err);
+    if (err instanceof functions.https.HttpsError) throw err;
+    throw new functions.https.HttpsError('internal', 'Failed to delete role');
+  }
+});
+
 // Trigger: on task created or updated -> notify assignee or on status change
 export const onTaskWritten = functions.database.ref('/tasks/{taskId}').onWrite(async (change, context) => {
   const before = change.before.exists() ? change.before.val() : null;

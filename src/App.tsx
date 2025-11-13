@@ -7,6 +7,8 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import UsersPage from './pages/UsersPage';
+import RolesPage from './pages/RolesPage';
+import UserProfilePage from './pages/UserProfilePage';
 import NewProjectPage from './pages/NewProjectPage';
 import ProjectDetailsPage from './pages/ProjectDetailsPage';
 import { Toaster } from 'sonner';
@@ -46,8 +48,10 @@ function App() {
               <Route path="/projects/:id" element={<ProjectDetailsPage />} />
               <Route path="/projects/new" element={<NewProjectPage />} />
               <Route path="/settings" element={<div>Configuración</div>} />
+              <Route path="/profile" element={<UserProfilePage />} />
               <Route path="/admin" element={<Navigate to="/admin/users" />} />
               <Route path="/admin/users" element={<UsersPage />} />
+              <Route path="/admin/roles" element={<RolesPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" />} />

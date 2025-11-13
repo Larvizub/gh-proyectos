@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 
 type Option = { value: string; label: React.ReactNode };
@@ -36,6 +37,8 @@ export function Select({ id, label, helper, value, onChange, children, className
     options.findIndex((o) => o.value === value)
   );
   const ref = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties | null>(null);
 
   useEffect(() => setActiveIndex(options.findIndex((o) => o.value === value)), [value, children]);
 
@@ -71,6 +74,71 @@ export function Select({ id, label, helper, value, onChange, children, className
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, activeIndex, options, onChange]);
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) {
+      setMenuStyle(null);
+      return;
+    }
+    const rect = buttonRef.current.getBoundingClientRect();
+    setMenuStyle({
+      position: 'absolute',
+      top: rect.bottom + window.scrollY,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+      zIndex: 9999,
+    });
+
+    function onWindowChange() {
+      if (!buttonRef.current) return;
+      const r = buttonRef.current.getBoundingClientRect();
+      setMenuStyle({
+        position: 'absolute',
+        top: r.bottom + window.scrollY,
+        left: r.left + window.scrollX,
+        width: r.width,
+        zIndex: 9999,
+      });
+    }
+
+    window.addEventListener('resize', onWindowChange);
+    window.addEventListener('scroll', onWindowChange, true);
+    return () => {
+      window.removeEventListener('resize', onWindowChange);
+      window.removeEventListener('scroll', onWindowChange, true);
+    };
+  }, [open]);
+
+  const dropdown = open ? (
+    <ul
+      role="listbox"
+      tabIndex={-1}
+      style={menuStyle || undefined}
+      className="max-h-56 overflow-auto rounded-md bg-popover shadow-lg ring-1 ring-black/10 focus:outline-none"
+    >
+      {options.map((opt, idx) => (
+        <li
+          key={opt.value}
+          role="option"
+          aria-selected={value === opt.value}
+          onMouseEnter={() => setActiveIndex(idx)}
+          onClick={() => {
+            onChange(opt.value);
+            setOpen(false);
+          }}
+          className={clsx(
+            'cursor-pointer px-4 py-2 text-sm',
+            value === opt.value
+              ? 'bg-primary text-primary-foreground'
+              : activeIndex === idx
+              ? 'bg-muted text-foreground'
+              : 'text-foreground'
+          )}
+        >
+          {opt.label}
+        </li>
+      ))}
+    </ul>
+  ) : null;
 
   return (
     <div className={clsx('w-full', className)} ref={ref}>
@@ -78,6 +146,7 @@ export function Select({ id, label, helper, value, onChange, children, className
       <div className="relative">
         <button
           id={id}
+          ref={buttonRef}
           type="button"
           aria-haspopup="listbox"
           aria-expanded={open}
@@ -93,36 +162,8 @@ export function Select({ id, label, helper, value, onChange, children, className
           </svg>
         </button>
 
-        {open && (
-          <ul
-            role="listbox"
-            tabIndex={-1}
-            className="absolute z-40 mt-1 max-h-56 w-full overflow-auto rounded-md bg-popover shadow-lg ring-1 ring-black/10 focus:outline-none"
-          >
-            {options.map((opt, idx) => (
-              <li
-                key={opt.value}
-                role="option"
-                aria-selected={value === opt.value}
-                onMouseEnter={() => setActiveIndex(idx)}
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                className={clsx(
-                  'cursor-pointer px-4 py-2 text-sm',
-                  value === opt.value
-                    ? 'bg-primary text-primary-foreground'
-                    : activeIndex === idx
-                    ? 'bg-muted text-foreground'
-                    : 'text-foreground'
-                )}
-              >
-                {opt.label}
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* render dropdown in portal to avoid clipping by table/container overflow */}
+        {typeof document !== 'undefined' && open ? createPortal(dropdown, document.body) : dropdown}
       </div>
       {helper && <p className="mt-1 text-xs text-slate-400">{helper}</p>}
     </div>

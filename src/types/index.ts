@@ -71,6 +71,9 @@ export interface Comment {
   content: string;
   createdAt: number;
   updatedAt: number;
+  userDisplayName?: string;
+  userPhotoURL?: string;
+  attachment?: Attachment;
 }
 
 export interface Notification {

@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Comment } from '@/types';
-import { commentsService } from '@/services/firebase.service';
+import { Comment, Attachment } from '@/types';
+import { commentsService, tasksService } from '@/services/firebase.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
-import { MessageSquare, Send } from 'lucide-react';
+import { MessageSquare, Send, Plus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 interface TaskCommentsProps {
   taskId: string;
+  inputIdSuffix?: string;
 }
 
-export function TaskComments({ taskId }: TaskCommentsProps) {
+export function TaskComments({ taskId, inputIdSuffix }: TaskCommentsProps) {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -33,24 +34,27 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
     return unsubscribe;
   }, [taskId, commentsService]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+
     if (!newComment.trim() || !user) return;
 
     setSubmitting(true);
     
     try {
+
       const commentData: Partial<Comment> = {
         taskId,
         userId: user.id,
+        userDisplayName: user.displayName,
+        userPhotoURL: (user as any).photoURL || null,
         content: newComment.trim(),
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
 
       await commentsService.create(commentData as any);
-      
+
       toast.success('Comentario agregado');
       setNewComment('');
     } catch (error: any) {
@@ -96,14 +100,14 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
               <div key={comment.id} className="flex gap-3 p-3 rounded-lg bg-muted/50">
                 <Avatar className="h-8 w-8">
                   <div className="h-full w-full flex items-center justify-center bg-primary text-primary-foreground text-sm">
-                    {user?.displayName?.charAt(0).toUpperCase() || '?'}
+                    {(comment.userDisplayName || comment.userId || '?').toString().charAt(0).toUpperCase()}
                   </div>
                 </Avatar>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-semibold text-sm">
-                      {comment.userId === user?.id ? 'Tú' : 'Usuario'}
+                      {comment.userId === user?.id ? 'Tú' : (comment.userDisplayName || 'Usuario')}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {formatDistanceToNow(comment.createdAt, { 
@@ -115,14 +119,27 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
                   <p className="text-sm whitespace-pre-wrap break-words">
                     {comment.content}
                   </p>
+                  {comment.attachment && (
+                    <div className="mt-2">
+                      {comment.attachment.url && /(png|jpe?g|gif|webp)$/i.test(comment.attachment.name) ? (
+                        <a href={comment.attachment.url} target="_blank" rel="noreferrer" className="block rounded overflow-hidden">
+                          <img src={comment.attachment.url} alt={comment.attachment.name} className="max-h-40 object-cover rounded" />
+                        </a>
+                      ) : (
+                        <a href={comment.attachment.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-primary underline">
+                          📎 {comment.attachment.name}
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
         
-        {/* Formulario para nuevo comentario */}
-        <form onSubmit={handleSubmit} className="flex gap-2">
+        {/* Formulario para nuevo comentario (con adjuntos) */}
+        <div className="flex gap-2 items-end">
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -131,14 +148,50 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
             rows={2}
             disabled={submitting}
           />
-          <Button 
-            type="submit" 
-            size="sm"
-            disabled={!newComment.trim() || submitting}
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
+
+          <div className="flex flex-col items-center gap-2">
+            <input id={`comment-file-${taskId}${inputIdSuffix ? `-${inputIdSuffix}` : ''}`} type="file" className="hidden" onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || !user) return;
+              setSubmitting(true);
+              try {
+                const attachment = await tasksService.uploadAttachment(taskId, file, user.id);
+                // create a comment that references the attachment
+                const commentData: Partial<Comment> = {
+                  taskId,
+                  userId: user.id,
+                  userDisplayName: user.displayName,
+                  userPhotoURL: (user as any).photoURL || null,
+                  content: `Adjunto: ${attachment.name}`,
+                  attachment: attachment as Attachment,
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                };
+                await commentsService.create(commentData as any);
+                toast.success('Archivo adjuntado y comentario creado');
+              } catch (err: any) {
+                console.error(err);
+                toast.error('Error al adjuntar archivo');
+              } finally {
+                setSubmitting(false);
+                // reset input value to allow same file again
+                (e.target as HTMLInputElement).value = '';
+              }
+            }} />
+            <label htmlFor={`comment-file-${taskId}${inputIdSuffix ? `-${inputIdSuffix}` : ''}`} className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-muted hover:bg-muted/80 cursor-pointer" title="Adjuntar archivo">
+              <Plus className="h-4 w-4" />
+            </label>
+
+            <Button
+              type="button"
+              size="sm"
+              disabled={!newComment.trim() || submitting}
+              onClick={() => handleSubmit()}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

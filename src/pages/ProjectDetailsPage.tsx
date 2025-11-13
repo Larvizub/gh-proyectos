@@ -383,60 +383,62 @@ export default function ProjectDetailsPage() {
       )}
 
       {viewType === 'list' && (
-        <div className="overflow-auto">
-          <table className="w-full table-auto border-collapse">
-            <thead>
-              <tr className="text-left border-b">
-                <th className="px-4 py-2">Título</th>
-                <th className="px-4 py-2">Estado</th>
-                <th className="px-4 py-2">Prioridad</th>
-                <th className="px-4 py-2">Asignados</th>
-                <th className="px-4 py-2">Tags</th>
-                <th className="px-4 py-2">Adjuntos</th>
-                <th className="px-4 py-2">Inicio</th>
-                <th className="px-4 py-2">Vencimiento</th>
-                <th className="px-4 py-2">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="text-center py-8">No hay tareas en este proyecto</td>
-                </tr>
-              ) : (
-                tasks.map(task => (
-                  <tr key={task.id} className="border-b hover:bg-muted/10">
-                    <td className="px-4 py-3">{task.title}</td>
-                    <td className="px-4 py-3">
-                      <div>
-                        {task.status === 'todo' && <span className="px-2 py-1 text-xs rounded-full bg-col-todo text-col-todo-text">Por hacer</span>}
-                        {task.status === 'in-progress' && <span className="px-2 py-1 text-xs rounded-full bg-col-inprogress text-col-inprogress-text">En progreso</span>}
-                        {task.status === 'review' && <span className="px-2 py-1 text-xs rounded-full bg-col-review text-col-review-text">En revisión</span>}
-                        {task.status === 'completed' && <span className="px-2 py-1 text-xs rounded-full bg-col-completed text-col-completed-text">Completada</span>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 capitalize">{task.priority}</td>
-                    <td className="px-4 py-3">{(task.assigneeIds || []).length}</td>
-                    <td className="px-4 py-3">{(task.tags || []).slice(0,3).join(', ') || '-'}</td>
-                    <td className="px-4 py-3">{(task.attachments || []).length}</td>
-                    <td className="px-4 py-3">{task.startDate ? new Date(task.startDate).toLocaleDateString() : '-'}</td>
-                    <td className="px-4 py-3">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => setSelectedTask(task)} className="p-2 rounded hover:bg-muted text-muted-foreground" title="Editar">
-                          <Edit3 className="h-4 w-4" />
-                        </button>
-                        <button type="button" onClick={() => handleDeleteTask(task.id)} className="p-2 rounded hover:bg-destructive/10 text-destructive" title="Eliminar">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-auto">
+              <table className="w-full table-auto">
+                <thead>
+                  <tr className="text-left">
+                    <th className="px-4 py-2">Título</th>
+                    <th className="px-4 py-2">Estado</th>
+                    <th className="px-4 py-2">Prioridad</th>
+                    <th className="px-4 py-2">Asignados</th>
+                    <th className="px-4 py-2">Tags</th>
+                    <th className="px-4 py-2">Adjuntos</th>
+                    <th className="px-4 py-2">Inicio</th>
+                    <th className="px-4 py-2">Vencimiento</th>
+                    <th className="px-4 py-2">Acciones</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {tasks.length === 0 ? (
+                    <tr><td colSpan={9} className="p-6 text-muted-foreground text-center">No hay tareas en este proyecto</td></tr>
+                  ) : (
+                    tasks.map(task => (
+                      <tr key={task.id} className="border-t hover:bg-muted/10">
+                        <td className="px-4 py-3">{task.title}</td>
+                        <td className="px-4 py-3">
+                          <div>
+                            {task.status === 'todo' && <span className="px-2 py-1 text-xs rounded-full bg-col-todo text-col-todo-text">Por hacer</span>}
+                            {task.status === 'in-progress' && <span className="px-2 py-1 text-xs rounded-full bg-col-inprogress text-col-inprogress-text">En progreso</span>}
+                            {task.status === 'review' && <span className="px-2 py-1 text-xs rounded-full bg-col-review text-col-review-text">En revisión</span>}
+                            {task.status === 'completed' && <span className="px-2 py-1 text-xs rounded-full bg-col-completed text-col-completed-text">Completada</span>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 capitalize">{task.priority}</td>
+                        <td className="px-4 py-3">{(task.assigneeIds || []).length}</td>
+                        <td className="px-4 py-3">{(task.tags || []).slice(0,3).join(', ') || '-'}</td>
+                        <td className="px-4 py-3">{(task.attachments || []).length}</td>
+                        <td className="px-4 py-3">{task.startDate ? new Date(task.startDate).toLocaleDateString() : '-'}</td>
+                        <td className="px-4 py-3">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => setSelectedTask(task)} className="p-2 rounded hover:bg-muted text-muted-foreground" title="Editar">
+                              <Edit3 className="h-4 w-4" />
+                            </button>
+                            <button type="button" onClick={() => handleDeleteTask(task.id)} className="p-2 rounded hover:bg-destructive/10 text-destructive" title="Eliminar">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {selectedTask && (

@@ -1,5 +1,6 @@
-import { database, getDatabaseForSite, resolveDatabase } from '@/config/firebase';
+import { database, getDatabaseForSite, resolveDatabase, DATABASE_URLS, functions as cloudFunctions, SiteKey } from '@/config/firebase';
 import { ref, push, set, get, update, remove, onValue, off, query, orderByChild, equalTo } from 'firebase/database';
+import { httpsCallable } from 'firebase/functions';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Project, Task, Comment, User } from '@/types';
 
@@ -172,7 +173,40 @@ export const commentsService = {
   const dbToUse = resolveDatabase();
   const commentsRef = ref(dbToUse, 'comments');
   const newCommentRef = push(commentsRef);
-    await set(newCommentRef, { ...comment, id: newCommentRef.key });
+    const payload = { ...comment, id: newCommentRef.key } as Comment;
+    await set(newCommentRef, payload);
+
+    // After creating comment, create notifications for assignees of the task (except the commenter)
+    try {
+      const taskRef = ref(dbToUse, `tasks/${comment.taskId}`);
+      const snap = await get(taskRef);
+      if (snap.exists()) {
+        const task = snap.val() as Task;
+        const assignees: string[] = task.assigneeIds || [];
+        const notificationsRef = ref(dbToUse, 'notifications');
+        const now = Date.now();
+
+        for (const assigneeId of assignees) {
+          if (!assigneeId || assigneeId === comment.userId) continue;
+          const newNotifRef = push(notificationsRef);
+          const notif = {
+            id: newNotifRef.key,
+            userId: assigneeId,
+            type: 'comment-added',
+            title: `Nuevo comentario en tarea`,
+            message: `${payload.userDisplayName || 'Alguien'}: ${payload.content?.slice(0,120)}`,
+            read: false,
+            relatedId: task.id,
+            createdAt: now
+          } as any;
+          await set(newNotifRef, notif);
+        }
+      }
+    } catch (err) {
+      // no bloquear la creación de comentarios por fallos en notificaciones
+      console.warn('Failed to create notifications for comment', err);
+    }
+
     return newCommentRef.key;
   },
 
@@ -253,6 +287,11 @@ export const usersService = {
     });
     return users;
   },
+  delete: async (userId: string) => {
+  const dbToUse = resolveDatabase();
+  const userRef = ref(dbToUse, `users/${userId}`);
+    await remove(userRef);
+  },
 };
 
 // Roles
@@ -270,20 +309,58 @@ export const rolesService = {
     const rolesRef = ref(dbToUse, 'roles');
     const newRef = push(rolesRef);
     const payload: Role = { ...role as any, id: newRef.key as string, createdAt: Date.now(), updatedAt: Date.now() };
-    await set(newRef, payload);
-    return payload;
+    try {
+      await set(newRef, payload);
+      return payload;
+    } catch (err) {
+      // fallback: try server-side callable to create the role (handles DB rules)
+      try {
+        const site = typeof window !== 'undefined' ? (localStorage.getItem('selectedSite') as SiteKey | null) : null;
+        const dbUrl = site ? DATABASE_URLS[site] : undefined;
+        const fn = httpsCallable(cloudFunctions as any, 'createRole');
+        const res = await fn({ role: payload, dbUrl });
+        return (res.data as any).role as Role;
+      } catch (err2) {
+        throw err2;
+      }
+    }
   },
 
   update: async (roleId: string, updates: Partial<Role>) => {
     const dbToUse = resolveDatabase();
     const roleRef = ref(dbToUse, `roles/${roleId}`);
-    await update(roleRef, { ...updates, updatedAt: Date.now() });
+    try {
+      await update(roleRef, { ...updates, updatedAt: Date.now() });
+    } catch (err) {
+      // fallback to server callable
+      try {
+        const site = typeof window !== 'undefined' ? (localStorage.getItem('selectedSite') as SiteKey | null) : null;
+        const dbUrl = site ? DATABASE_URLS[site] : undefined;
+        const fn = httpsCallable(cloudFunctions as any, 'updateRole');
+        const res = await fn({ roleId, updates, dbUrl });
+        return (res.data as any).role as Role;
+      } catch (err2) {
+        throw err2;
+      }
+    }
   },
 
   delete: async (roleId: string) => {
     const dbToUse = resolveDatabase();
     const roleRef = ref(dbToUse, `roles/${roleId}`);
-    await remove(roleRef);
+    try {
+      await remove(roleRef);
+    } catch (err) {
+      // fallback to callable
+      try {
+        const site = typeof window !== 'undefined' ? (localStorage.getItem('selectedSite') as SiteKey | null) : null;
+        const dbUrl = site ? DATABASE_URLS[site] : undefined;
+        const fn = httpsCallable(cloudFunctions as any, 'deleteRole');
+        await fn({ roleId, dbUrl });
+      } catch (err2) {
+        throw err2;
+      }
+    }
   },
 
   getAll: async (): Promise<Role[]> => {

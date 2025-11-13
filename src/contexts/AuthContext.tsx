@@ -5,7 +5,7 @@ import { Database } from "firebase/database";
 import { auth, functions, getDatabaseForSite, SiteKey, DATABASE_URLS } from "@/config/firebase";
 import { httpsCallable } from 'firebase/functions';
 import { User } from "@/types";
-import { ref, get, set, update as dbUpdate } from 'firebase/database';
+import { ref, get, set, update as dbUpdate, onValue, off } from 'firebase/database';
 
 interface AuthContextType {
   user: User | null;
@@ -31,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const database = useMemo(() => getDatabaseForSite(selectedSite), [selectedSite]);
 
   useEffect(() => {
+    let userListenerUnsub: (() => void) | null = null;
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         console.log("Firebase user authenticated:", fbUser.uid);
@@ -40,7 +41,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: fbUser.email || "",
           displayName: fbUser.displayName || fbUser.email?.split("@")[0] || "Usuario",
           photoURL: fbUser.photoURL || undefined,
-          role: "user",
+          // Default local role (UI only) — persisted payloads must exclude this
+          // field so we do not overwrite an existing server-side assignment.
+          role: 'user',
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -57,6 +60,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // sanitize userData: replace undefined photoURL with null
             const payloadUser: any = { ...userData };
             if (payloadUser.photoURL === undefined) payloadUser.photoURL = null;
+            // Ensure we do NOT send the local default role to the server so existing
+            // server-side assignments are preserved.
+            if (payloadUser.hasOwnProperty('role')) delete payloadUser.role;
 
             await upsertUserFn({ site: currentSite, dbUrl, user: payloadUser });
             console.log('Usuario enviado a upsertUser callable:', userData.id);
@@ -69,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const userRef = ref(dbToUse, `users/${userData.id}`);
               const payload: any = { ...userData };
               if (payload.photoURL === undefined) payload.photoURL = null;
+              if (payload.hasOwnProperty('role')) delete payload.role;
               const snap = await get(userRef);
               if (!snap.exists()) {
                 await set(userRef, payload);
@@ -82,6 +89,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
         })();
+
+        // After attempting to persist, read the canonical user record from the selected site's DB
+        try {
+          // cleanup previous listener if any
+          if (userListenerUnsub) {
+            try { userListenerUnsub(); } catch (e) {}
+            userListenerUnsub = null;
+          }
+
+          const currentSiteForListener = (typeof window !== 'undefined' && localStorage.getItem('selectedSite')) as SiteKey | null || selectedSite;
+          const dbForSite = getDatabaseForSite(currentSiteForListener);
+          const userRef = ref(dbForSite, `users/${fbUser.uid}`);
+          // one-time fetch to update role/displayName/photoURL if present
+          const snap = await get(userRef);
+          if (snap.exists()) {
+            const remote = snap.val();
+            const merged: User = {
+              ...userData,
+              displayName: remote.displayName || userData.displayName,
+              email: remote.email || userData.email,
+              photoURL: remote.photoURL === undefined ? userData.photoURL : remote.photoURL,
+              role: remote.role || userData.role,
+              createdAt: remote.createdAt || userData.createdAt,
+              updatedAt: remote.updatedAt || userData.updatedAt,
+            };
+            setUser(merged);
+          }
+
+          // subscribe to changes so role updates propagate to the UI
+          onValue(userRef, (s) => {
+            if (!s.exists()) return;
+            const remote = s.val();
+            setUser((prev) => ({
+              ...(prev || userData),
+              displayName: remote.displayName || (prev?.displayName || userData.displayName),
+              email: remote.email || (prev?.email || userData.email),
+              photoURL: remote.photoURL === undefined ? (prev?.photoURL || userData.photoURL) : remote.photoURL,
+              role: remote.role || (prev?.role || userData.role),
+              createdAt: remote.createdAt || (prev?.createdAt || userData.createdAt),
+              updatedAt: remote.updatedAt || Date.now(),
+            }));
+          });
+          // store unsubscriber
+          userListenerUnsub = () => off(userRef);
+        } catch (listenErr) {
+          console.warn('AuthContext: could not read/subscribe to user record', listenErr);
+        }
       } else {
         console.log("No Firebase user authenticated");
         setFirebaseUser(null);
@@ -89,7 +143,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setLoading(false);
     });
-    return () => unsubscribe();
+    return () => {
+      try { unsubscribe(); } catch (e) {}
+      try { if (userListenerUnsub) userListenerUnsub(); } catch (e) {}
+    };
   }, [selectedSite]);
 
   const signInWithMicrosoft = async (site: SiteKey) => {
