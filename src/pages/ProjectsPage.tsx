@@ -4,6 +4,7 @@ import { Plus, FolderKanban, CheckCircle, Calendar, Trophy, Users, User } from '
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { projectsService } from '@/services/firebase.service';
+import ProjectModal from '@/components/projects/ProjectModal';
 import { Project } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import PageLoader from '@/components/PageLoader';
@@ -12,6 +13,8 @@ export function ProjectsPage() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   useEffect(() => {
     const unsubscribe = projectsService.listen((projectsData) => {
@@ -30,7 +33,7 @@ export function ProjectsPage() {
     // No usamos el overlay completo aquí para evitar un parpadeo al navegar entre rutas.
     return <PageLoader message="Cargando proyectos..." overlay={false} />;
   }
-
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -71,7 +74,7 @@ export function ProjectsPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {projects.map(project => (
-            <Link key={project.id} to={`/projects/${project.id}`}>
+            <Link key={project.id} to={`/projects/${project.id}`}> 
               <Card className="hover:shadow-2xl transition-all duration-300 cursor-pointer h-full border-2 hover:border-primary/50 hover:scale-[1.02] group">
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between gap-3">
@@ -86,7 +89,8 @@ export function ProjectsPage() {
                         </CardTitle>
                       </div>
                     </div>
-                    <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shadow-sm flex-shrink-0 ${
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shadow-sm flex-shrink-0 ${
                       project.status === 'active'
                         ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
                         : project.status === 'completed'
@@ -110,6 +114,14 @@ export function ProjectsPage() {
                         </>
                       )}
                     </span>
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingProject(project); setModalOpen(true); }}
+                        title="Editar proyecto"
+                        className="ml-2 inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm bg-muted/20 hover:bg-muted"
+                      >
+                        Editar
+                      </button>
+                    </div>
                   </div>
                   <CardDescription className="line-clamp-2 mt-3 text-base leading-relaxed">
                     {project.description || 'Sin descripción'}
@@ -144,6 +156,20 @@ export function ProjectsPage() {
             </Link>
           ))}
         </div>
+          {editingProject && (
+            <ProjectModal open={modalOpen} onClose={() => { setModalOpen(false); setEditingProject(null); }} initial={editingProject} onSave={async (payload: Partial<Project> & { id: string }) => {
+              try {
+                await projectsService.update(payload.id, { name: payload.name, description: payload.description, color: payload.color });
+                // refresh list is handled by projectsService.listen
+                setModalOpen(false);
+                setEditingProject(null);
+                toast.success('Proyecto actualizado');
+              } catch (err) {
+                console.error('Error updating project', err);
+                toast.error('No se pudo actualizar el proyecto');
+              }
+            }} />
+          )}
       )}
     </div>
   );
