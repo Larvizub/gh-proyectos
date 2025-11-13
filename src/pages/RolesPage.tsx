@@ -82,7 +82,7 @@ export default function RolesPage() {
           <p className="text-muted-foreground mt-2 text-lg">Define y administra los roles y permisos de tu organización</p>
         </div>
         <Button asChild size="lg" className="shadow-lg">
-          <button onClick={() => { setEditing(null); setModalOpen(true); }}>
+          <button onClick={() => { setEditing(null); setModalOpen(true); }} disabled={loading} aria-busy={loading}>
             <Plus className="mr-2 h-5 w-5" />
             Crear rol
           </button>
