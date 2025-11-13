@@ -25,6 +25,10 @@ export default function ProjectDetailsPage() {
   const [viewType, setViewType] = useState<ViewType>('kanban');
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
+  const [editingProject, setEditingProject] = useState(false);
+  const [projName, setProjName] = useState('');
+  const [projDescription, setProjDescription] = useState('');
+  const [projColor, setProjColor] = useState('#000000');
 
   // Task form
   const [title, setTitle] = useState('');
@@ -54,6 +58,11 @@ export default function ProjectDetailsPage() {
       setLoading(true);
       const p = await projectsService.get(id);
       setProject(p);
+      if (p) {
+        setProjName(p.name || '');
+        setProjDescription(p.description || '');
+        setProjColor(p.color || '#000000');
+      }
       setLoading(false);
 
       unsubTasks = tasksService.listen(id, (ts) => setTasks(ts));
@@ -171,6 +180,58 @@ export default function ProjectDetailsPage() {
         </div>
         
         <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => {
+            setEditingProject(true);
+            setProjName(project.name || '');
+            setProjDescription(project.description || '');
+            setProjColor(project.color || '#000000');
+          }}>
+            <Edit3 className="h-4 w-4 mr-2" />
+            Editar
+          </Button>
+
+          {editingProject && (
+            <div className="absolute right-6 top-20 z-50 w-full max-w-md">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Editar proyecto</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!project) return;
+                    try {
+                      await projectsService.update(project.id, { name: projName, description: projDescription, color: projColor });
+                      const updated = await projectsService.get(project.id);
+                      setProject(updated);
+                      toast.success('Proyecto actualizado');
+                      setEditingProject(false);
+                    } catch (err: any) {
+                      console.error('Error updating project', err);
+                      toast.error('No se pudo actualizar el proyecto');
+                    }
+                  }} className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium">Nombre</label>
+                      <input value={projName} onChange={e => setProjName(e.target.value)} className="w-full rounded-lg border-2 border-border bg-input px-3 py-2" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Descripción</label>
+                      <textarea value={projDescription} onChange={e => setProjDescription(e.target.value)} className="w-full rounded-lg border-2 border-border bg-input px-3 py-2" rows={3} />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Color</label>
+                      <input type="color" value={projColor} onChange={e => setProjColor(e.target.value)} className="h-10 w-12 p-0 border-0 bg-transparent" />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={() => setEditingProject(false)}>Cancelar</Button>
+                      <Button type="submit">Guardar</Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          )}
           {/* Selector de vista mejorado */}
           <div className="flex rounded-lg border-2 border-border bg-background p-1 shadow-sm">
             <button
