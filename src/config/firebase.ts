@@ -34,6 +34,8 @@ const DATABASE_URLS: Record<SiteKey, string> = {
   CEVP: import.meta.env.VITE_FIREBASE_DATABASE_URL_CEVP,
 };
 
+export { DATABASE_URLS };
+
 // Cache de instancias de base de datos
 const databaseInstances = new Map<SiteKey, Database>();
 

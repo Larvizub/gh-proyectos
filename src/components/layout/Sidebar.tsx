@@ -34,6 +34,11 @@ const adminNavigationItems = [
     href: '/admin',
     icon: Users,
   },
+  {
+    title: 'Usuarios',
+    href: '/admin/users',
+    icon: User,
+  },
 ];
 
 export function Sidebar({ className, isOpen, onClose }: SidebarProps) {

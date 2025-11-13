@@ -6,6 +6,7 @@ import { MainLayout } from './components/layout/MainLayout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectsPage } from './pages/ProjectsPage';
+import UsersPage from './pages/UsersPage';
 import NewProjectPage from './pages/NewProjectPage';
 import ProjectDetailsPage from './pages/ProjectDetailsPage';
 import { Toaster } from 'sonner';
@@ -45,7 +46,8 @@ function App() {
               <Route path="/projects/:id" element={<ProjectDetailsPage />} />
               <Route path="/projects/new" element={<NewProjectPage />} />
               <Route path="/settings" element={<div>Configuración</div>} />
-              <Route path="/admin" element={<div>Administración</div>} />
+              <Route path="/admin" element={<Navigate to="/admin/users" />} />
+              <Route path="/admin/users" element={<UsersPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" />} />

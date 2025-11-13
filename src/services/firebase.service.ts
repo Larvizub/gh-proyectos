@@ -254,3 +254,54 @@ export const usersService = {
     return users;
   },
 };
+
+// Roles
+export type Role = {
+  id: string;
+  name: string;
+  modules?: Record<string, { observe?: boolean; interact?: boolean }>; // e.g. { projects: { observe: true, interact: false } }
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export const rolesService = {
+  create: async (role: Omit<Role, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const dbToUse = resolveDatabase();
+    const rolesRef = ref(dbToUse, 'roles');
+    const newRef = push(rolesRef);
+    const payload: Role = { ...role as any, id: newRef.key as string, createdAt: Date.now(), updatedAt: Date.now() };
+    await set(newRef, payload);
+    return payload;
+  },
+
+  update: async (roleId: string, updates: Partial<Role>) => {
+    const dbToUse = resolveDatabase();
+    const roleRef = ref(dbToUse, `roles/${roleId}`);
+    await update(roleRef, { ...updates, updatedAt: Date.now() });
+  },
+
+  delete: async (roleId: string) => {
+    const dbToUse = resolveDatabase();
+    const roleRef = ref(dbToUse, `roles/${roleId}`);
+    await remove(roleRef);
+  },
+
+  getAll: async (): Promise<Role[]> => {
+    const dbToUse = resolveDatabase();
+    const rolesRef = ref(dbToUse, 'roles');
+    const snapshot = await get(rolesRef);
+    if (!snapshot.exists()) return [];
+    const roles: Role[] = [];
+    snapshot.forEach((child) => {
+      roles.push(child.val());
+    });
+    return roles;
+  },
+
+  get: async (roleId: string): Promise<Role | null> => {
+    const dbToUse = resolveDatabase();
+    const roleRef = ref(dbToUse, `roles/${roleId}`);
+    const snapshot = await get(roleRef);
+    return snapshot.exists() ? snapshot.val() : null;
+  }
+};

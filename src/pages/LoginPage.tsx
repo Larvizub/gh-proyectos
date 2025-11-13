@@ -3,11 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import Select from '@/components/ui/select';
 
 export function LoginPage() {
   const { signInWithMicrosoft, loading, user } = useAuth();
+  const { theme } = useTheme();
   const navigate = useNavigate();
   const [site, setSite] = useState<'CORPORATIVO' | 'CCCR' | 'CCCI' | 'CEVP'>(() => {
     try {
@@ -58,10 +60,10 @@ export function LoginPage() {
       <Card className="w-full max-w-md">
           <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img 
-              src="https://costaricacc.com/cccr/Logoheroica.png" 
-              alt="Logo" 
-              className="h-20 w-auto"
+            <img
+              src="https://costaricacc.com/cccr/Logoheroica.png"
+              alt="Logo"
+              className={`h-20 w-auto transition-all ${theme === 'dark' ? 'brightness-0 invert' : ''}`}
             />
           </div>
           <CardTitle className="text-3xl md:text-4xl font-extrabold">

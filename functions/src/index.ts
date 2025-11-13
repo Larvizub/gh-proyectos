@@ -33,6 +33,28 @@ async function getAppAccessToken(): Promise<string> {
   return tokenResponse.accessToken;
 }
 
+// Safe accessor that returns null when token can't be acquired (used in background triggers)
+async function getAppAccessTokenSafe(): Promise<string | null> {
+  try {
+    return await getAppAccessToken();
+  } catch (err) {
+    functions.logger.warn('getAppAccessTokenSafe: could not obtain token, skipping Graph operations', { reason: String((err as any)?.message || err) });
+    return null;
+  }
+}
+
+function maskEmails(list: string[] | undefined) {
+  if (!Array.isArray(list) || list.length === 0) return '[]';
+  const preview = list.slice(0, 3).map((e) => {
+    const parts = e.split('@');
+    if (parts.length !== 2) return '***';
+    const local = parts[0];
+    const domain = parts[1];
+    return `${local.slice(0, Math.min(3, local.length))}***@${domain}`;
+  });
+  return `${preview.join(', ')}${list.length > 3 ? ` (+${list.length - 3} más)` : ''}`;
+}
+
 async function sendMailViaGraph(accessToken: string, subject: string, bodyHtml: string, toRecipients: string[]) {
   const msg = {
     message: {
@@ -75,8 +97,7 @@ function extractEmails(list: any[]): string[] {
 export const onProjectCreated = functions.database.ref('/projects/{projectId}').onCreate(async (snapshot, context) => {
   const project = snapshot.val();
   functions.logger.log('Project created', context.params.projectId);
-
-  const accessToken = await getAppAccessToken();
+  const accessToken = await getAppAccessTokenSafe();
 
   const subject = `Nuevo proyecto creado: ${project?.name || 'Sin título'}`;
   const participants = extractEmails(project?.participants || project?.members || []);
@@ -86,14 +107,93 @@ export const onProjectCreated = functions.database.ref('/projects/{projectId}').
     <p>Descripción: ${project?.description || '-'}</p>
     <p>Vea el proyecto en la plataforma.</p>`;
 
+  // If no token (credentials not configured), skip email sending quietly
+  if (!accessToken) {
+    functions.logger.warn('Skipping project creation emails: Azure token unavailable', { projectId: context.params.projectId, participants: maskEmails(participants) });
+    return null;
+  }
+
   try {
     await sendMailViaGraph(accessToken, subject, body, participants);
-    functions.logger.log('Project creation emails sent to', participants);
+    functions.logger.log('Project creation emails sent', { projectId: context.params.projectId, recipientsCount: participants.length });
   } catch (err) {
-    functions.logger.error('Error sending project creation emails', err);
+    functions.logger.error('Error sending project creation emails', { err: String((err as any)?.message || err), recipients: maskEmails(participants) });
   }
 
   return null;
+});
+
+// Callable: upsertUser -> create or update a user record in the target Realtime Database
+export const upsertUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const site: string | undefined = data?.site;
+  const dbUrl: string | undefined = data?.dbUrl; // optional: client may provide target DB url
+  const user = data?.user;
+
+  if (!site || !user || !user.id) {
+    throw new functions.https.HttpsError('invalid-argument', 'site and user.id are required');
+  }
+
+  // Ensure the caller is the authenticated user or an admin (simple check)
+  if (context.auth.uid !== user.id) {
+    // Allow privileged server-to-server use in the future, but for now require uid match
+    throw new functions.https.HttpsError('permission-denied', 'Caller UID does not match user id');
+  }
+
+  // Helper: initialize or reuse a secondary admin app for a given databaseURL
+  const appsByDb = (global as any).__appsByDb || ((global as any).__appsByDb = {});
+  let adminApp: admin.app.App = admin.app();
+  if (dbUrl) {
+    if (!appsByDb[dbUrl]) {
+      // create a named secondary app
+      try {
+        appsByDb[dbUrl] = admin.initializeApp({ databaseURL: dbUrl } as any, `db-${Object.keys(appsByDb).length + 1}`);
+      } catch (e) {
+        // If create fails because an app with same name exists, fallback to admin.app()
+        functions.logger.warn('upsertUser: error creating secondary app', e);
+        appsByDb[dbUrl] = admin.app();
+      }
+    }
+    adminApp = appsByDb[dbUrl];
+  }
+
+  try {
+    const db = adminApp.database();
+    const usersRef = db.ref(`/users/${user.id}`);
+
+    // Sanitize user object: remove undefined fields (Realtime DB does not accept undefined)
+    const sanitized: any = {};
+    const allowed = ['id', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'updatedAt'];
+    for (const k of allowed) {
+      if (Object.prototype.hasOwnProperty.call(user, k)) {
+        const v = (user as any)[k];
+        // set null for undefined-like values
+        if (v === undefined) sanitized[k] = null;
+        else sanitized[k] = v;
+      }
+    }
+
+    const snap = await usersRef.once('value');
+    if (!snap.exists()) {
+      // ensure timestamps
+      if (!sanitized.createdAt) sanitized.createdAt = Date.now();
+      sanitized.updatedAt = Date.now();
+      await usersRef.set(sanitized);
+      return { success: true, created: true };
+    } else {
+      sanitized.updatedAt = Date.now();
+      // prevent overwriting role if not provided
+      if (sanitized.role === undefined || sanitized.role === null) delete sanitized.role;
+      await usersRef.update(sanitized);
+      return { success: true, created: false };
+    }
+  } catch (err: any) {
+    functions.logger.error('upsertUser error', err?.message || err);
+    throw new functions.https.HttpsError('internal', 'Failed to upsert user');
+  }
 });
 
 // Trigger: on task created or updated -> notify assignee or on status change
@@ -102,7 +202,7 @@ export const onTaskWritten = functions.database.ref('/tasks/{taskId}').onWrite(a
   const after = change.after.exists() ? change.after.val() : null;
   functions.logger.log('Task written', context.params.taskId);
 
-  const accessToken = await getAppAccessToken();
+  const accessToken = await getAppAccessTokenSafe();
 
   // New task
   if (!before && after) {
@@ -112,11 +212,15 @@ export const onTaskWritten = functions.database.ref('/tasks/{taskId}').onWrite(a
       <p>Descripción: ${after?.description || '-'}</p>
       <p>Proyecto: ${after?.projectName || '-'}</p>`;
     if (assignees.length) {
-      try {
-        await sendMailViaGraph(accessToken, subject, body, assignees);
-        functions.logger.log('Task assignment emails sent', assignees);
-      } catch (err) {
-        functions.logger.error('Error sending task assignment emails', err);
+      if (!accessToken) {
+        functions.logger.warn('Skipping task assignment emails: Azure token unavailable', { taskId: context.params.taskId, assignees: maskEmails(assignees) });
+      } else {
+        try {
+          await sendMailViaGraph(accessToken, subject, body, assignees);
+          functions.logger.log('Task assignment emails sent', { taskId: context.params.taskId, recipientsCount: assignees.length });
+        } catch (err) {
+          functions.logger.error('Error sending task assignment emails', { err: String((err as any)?.message || err), recipients: maskEmails(assignees) });
+        }
       }
     }
     return null;
@@ -131,11 +235,15 @@ export const onTaskWritten = functions.database.ref('/tasks/{taskId}').onWrite(a
       const subject = `Cambio de estado en tarea: ${after?.title || ''}`;
       const body = `<p>La tarea <strong>${after?.title}</strong> cambió de estado de <em>${beforeStatus}</em> a <em>${afterStatus}</em></p>`;
       if (participants.length) {
-        try {
-          await sendMailViaGraph(accessToken, subject, body, participants);
-          functions.logger.log('Task status change emails sent', participants);
-        } catch (err) {
-          functions.logger.error('Error sending task status emails', err);
+        if (!accessToken) {
+          functions.logger.warn('Skipping task status emails: Azure token unavailable', { taskId: context.params.taskId, participants: maskEmails(participants) });
+        } else {
+          try {
+            await sendMailViaGraph(accessToken, subject, body, participants);
+            functions.logger.log('Task status change emails sent', { taskId: context.params.taskId, recipientsCount: participants.length });
+          } catch (err) {
+            functions.logger.error('Error sending task status emails', { err: String((err as any)?.message || err), recipients: maskEmails(participants) });
+          }
         }
       }
     }
@@ -152,10 +260,11 @@ export const createCalendarEvent = functions.https.onCall(async (data, context) 
   }
   try {
     const accessToken = await getAppAccessToken();
+    if (!accessToken) throw new Error('Azure token not available');
     const created = await createCalendarEventViaGraph(accessToken, userEmail, event);
     return { success: true, event: created };
   } catch (err: any) {
-    functions.logger.error('createCalendarEvent error', err.message || err);
+    functions.logger.error('createCalendarEvent error', { err: String(err?.message || err) });
     throw new functions.https.HttpsError('internal', 'Failed to create calendar event');
   }
 });
@@ -168,10 +277,11 @@ export const sendNotificationEmail = functions.https.onCall(async (data, context
   }
   try {
     const accessToken = await getAppAccessToken();
+    if (!accessToken) throw new Error('Azure token not available');
     await sendMailViaGraph(accessToken, subject, html, Array.isArray(to) ? to : [to]);
     return { success: true };
   } catch (err) {
-    functions.logger.error('sendNotificationEmail error', err);
+    functions.logger.error('sendNotificationEmail error', { err: String((err as any)?.message || err) });
     throw new functions.https.HttpsError('internal', 'Failed to send email');
   }
 });

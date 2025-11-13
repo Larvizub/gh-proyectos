@@ -2,10 +2,10 @@ import React, { createContext, useContext, useEffect, useState, useMemo } from "
 import { toast } from "sonner";
 import { User as FirebaseUser, signInWithPopup, signInWithRedirect, OAuthProvider, signOut as firebaseSignOut, onAuthStateChanged } from "firebase/auth";
 import { Database } from "firebase/database";
-import { auth, functions, getDatabaseForSite, SiteKey } from "@/config/firebase";
+import { auth, functions, getDatabaseForSite, SiteKey, DATABASE_URLS } from "@/config/firebase";
 import { httpsCallable } from 'firebase/functions';
 import { User } from "@/types";
-import { usersService } from '@/services/firebase.service';
+import { ref, get, set, update as dbUpdate } from 'firebase/database';
 
 interface AuthContextType {
   user: User | null;
@@ -49,16 +49,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Persistir/actualizar usuario en la base de datos para que esté disponible en la app
         (async () => {
           try {
-            const existing = await usersService.get(userData.id);
-            if (!existing) {
-              await usersService.create(userData);
-              console.log('Usuario creado en la base de datos:', userData.id);
-            } else {
-              await usersService.update(userData.id, { displayName: userData.displayName, photoURL: userData.photoURL, email: userData.email });
-              console.log('Usuario actualizado en la base de datos:', userData.id);
-            }
+            // Resolve current site (read localStorage to avoid stale closures)
+            const currentSite = (typeof window !== 'undefined' && localStorage.getItem('selectedSite')) as SiteKey | null || selectedSite;
+            const dbUrl = DATABASE_URLS[currentSite];
+            const upsertUserFn = httpsCallable(functions, 'upsertUser');
+
+            // sanitize userData: replace undefined photoURL with null
+            const payloadUser: any = { ...userData };
+            if (payloadUser.photoURL === undefined) payloadUser.photoURL = null;
+
+            await upsertUserFn({ site: currentSite, dbUrl, user: payloadUser });
+            console.log('Usuario enviado a upsertUser callable:', userData.id);
           } catch (err) {
-            console.warn('No se pudo persistir usuario en la base de datos', err);
+            console.warn('No se pudo persistir usuario en la base de datos via callable, intentando fallback cliente', err);
+            // Fallback: attempt client-side write but ensure no undefined values
+            try {
+              const currentSite = (typeof window !== 'undefined' && localStorage.getItem('selectedSite')) as SiteKey | null || selectedSite;
+              const dbToUse = getDatabaseForSite(currentSite);
+              const userRef = ref(dbToUse, `users/${userData.id}`);
+              const payload: any = { ...userData };
+              if (payload.photoURL === undefined) payload.photoURL = null;
+              const snap = await get(userRef);
+              if (!snap.exists()) {
+                await set(userRef, payload);
+                console.log('Usuario creado (fallback cliente):', userData.id);
+              } else {
+                await dbUpdate(userRef, { displayName: payload.displayName, photoURL: payload.photoURL, email: payload.email, updatedAt: Date.now() });
+                console.log('Usuario actualizado (fallback cliente):', userData.id);
+              }
+            } catch (clientErr) {
+              console.warn('Fallback cliente falló al persistir usuario', clientErr);
+            }
           }
         })();
       } else {
@@ -69,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [selectedSite]);
 
   const signInWithMicrosoft = async (site: SiteKey) => {
     try {
@@ -99,9 +120,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       const provider = new OAuthProvider("microsoft.com");
+      // Request Graph scopes so we can fetch richer profile info after sign-in
+      try {
+        provider.addScope('User.Read');
+      } catch (e) {}
       // Hint to Azure AD to prefer the expected domain/account in the chooser
-      provider.setCustomParameters({ 
-        tenant: import.meta.env.VITE_MSAL_TENANT_ID, 
+      provider.setCustomParameters({
+        tenant: import.meta.env.VITE_MSAL_TENANT_ID,
         prompt: "select_account",
         // domain_hint and login_hint can help the Microsoft account picker suggest the right account
         domain_hint: expectedDomain,
@@ -144,6 +169,104 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try { await firebaseSignOut(auth); } catch {};
         const msg = err?.message || (err?.details && JSON.stringify(err.details)) || 'Dominio no autorizado para el sitio seleccionado';
         throw new Error(msg);
+      }
+
+      // Attempt to fetch richer profile info from Microsoft Graph if we have an access token
+      try {
+        const accessToken = (result as any)?.credential?.accessToken || null;
+        let graphProfile: any = null;
+        if (accessToken) {
+          const gRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          if (gRes.ok) graphProfile = await gRes.json();
+        }
+
+        // Build the user object with Graph data preferred
+        function normalizeEmailFromGraph(profile: any, firebaseEmail?: string) {
+          // Prefer the `mail` property
+          if (profile?.mail) return profile.mail;
+          // otherMails may contain the original external email for guest users
+          if (Array.isArray(profile?.otherMails) && profile.otherMails.length > 0) return profile.otherMails[0];
+
+          const upn: string | undefined = profile?.userPrincipalName || firebaseEmail;
+          if (!upn) return '';
+
+          // Handle guest UPNs like: local_domain#ext#@tenant.onmicrosoft.com
+          const marker = '#ext#';
+          const upnLower = upn.toLowerCase();
+          if (upnLower.includes(marker)) {
+            // prefix is before '#ext#'
+            const prefix = upnLower.split(marker)[0];
+            // Attempt to split last '_' to recover local and domain: local_domain
+            const lastUnderscore = prefix.lastIndexOf('_');
+            if (lastUnderscore > 0) {
+              const local = prefix.slice(0, lastUnderscore);
+              const domain = prefix.slice(lastUnderscore + 1);
+              if (domain.includes('.')) {
+                return `${local}@${domain}`;
+              }
+            }
+          }
+
+          // Fallbacks: prefer firebaseEmail if present, otherwise return the UPN as-is
+          if (firebaseEmail) return firebaseEmail;
+          return upn;
+        }
+
+        const finalEmail = normalizeEmailFromGraph(graphProfile, result?.user?.email || undefined) || '';
+        const finalDisplayName = graphProfile?.displayName || result?.user?.displayName || (finalEmail ? finalEmail.split('@')[0] : 'Usuario');
+        const finalPhoto = undefined; // could fetch /photo/$value if needed
+
+        // Persist user record server-side via callable to ensure writes go to the correct DB and avoid client
+        // Realtime DB rules or undefined-value issues.
+        try {
+          const uid = result.user.uid;
+          const dbUrl = DATABASE_URLS[site];
+          const upsertUserFn = httpsCallable(functions, 'upsertUser');
+          const now = Date.now();
+          const payloadUser: any = {
+            id: uid,
+            email: finalEmail,
+            displayName: finalDisplayName,
+            photoURL: finalPhoto ?? null,
+            // role will be preserved by server if exists
+            createdAt: now,
+            updatedAt: now,
+          };
+
+          await upsertUserFn({ site, dbUrl, user: payloadUser });
+          console.log('Usuario creado/actualizado via upsertUser:', uid);
+        } catch (writeErr) {
+          console.warn('No se pudo crear/actualizar usuario con Graph data via callable', writeErr);
+          // Fallback: attempt client-side write sanitized
+          try {
+            const uid = result.user.uid;
+            const dbForSite = getDatabaseForSite(site);
+            const userRef = ref(dbForSite, `users/${uid}`);
+            const now = Date.now();
+            const payloadUser: any = {
+              id: uid,
+              email: finalEmail,
+              displayName: finalDisplayName,
+              photoURL: finalPhoto ?? null,
+              createdAt: now,
+              updatedAt: now,
+            };
+            const snap = await get(userRef);
+            if (!snap.exists()) {
+              await set(userRef, payloadUser);
+              console.log('Usuario creado (fallback cliente):', uid);
+            } else {
+              await dbUpdate(userRef, { displayName: payloadUser.displayName, photoURL: payloadUser.photoURL, email: payloadUser.email, updatedAt: now });
+              console.log('Usuario actualizado (fallback cliente):', uid);
+            }
+          } catch (clientErr) {
+            console.warn('Fallback cliente falló al persistir usuario', clientErr);
+          }
+        }
+      } catch (graphErr) {
+        console.warn('Error fetching Microsoft Graph profile, continuing without it', graphErr);
       }
       
       console.log("✅ User authenticated successfully with correct domain");
