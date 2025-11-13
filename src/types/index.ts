@@ -17,6 +17,7 @@ export interface Project {
   color: string;
   ownerId: string;
   memberIds: string[];
+  tags?: string[];
   // Sitios donde existe/estará replicado el proyecto (opcional)
   sites?: SiteKey[];
   createdAt: number;

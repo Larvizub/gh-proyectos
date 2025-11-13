@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import Select from '@/components/ui/select';
-import { tasksService, usersService } from '@/services/firebase.service';
+import { tasksService, usersService, projectsService } from '@/services/firebase.service';
 import { toast } from 'sonner';
 import DatePicker from '@/components/ui/DatePicker';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +24,9 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
   const [dueInput, setDueInput] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [projectTags, setProjectTags] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [openTags, setOpenTags] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(Date.now());
   const { user } = useAuth();
@@ -37,6 +40,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     setPriority(task.priority ?? 'medium');
     setDueInput(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : '');
     setSelectedAssignees(task.assigneeIds || []);
+    setSelectedTags(task.tags || []);
   }, [task]);
 
   useEffect(() => {
@@ -52,6 +56,19 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     })();
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    if (!task) return;
+    (async () => {
+      try {
+        const p = await projectsService.get(task.projectId);
+        setProjectTags(p?.tags || []);
+      } catch (err) {
+        console.warn('No se pudieron cargar tags del proyecto', err);
+        setProjectTags([]);
+      }
+    })();
+  }, [task]);
 
   function dateInputToTimestamp(value: string) {
     if (!value) return undefined;
@@ -74,6 +91,9 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
       priority,
       updatedAt: Date.now(),
     };
+
+    // include tags selected from project
+    updates.tags = selectedTags || [];
 
     const dueTs = dateInputToTimestamp(dueInput);
     if (dueTs) updates.dueDate = dueTs;
@@ -218,6 +238,49 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
                   </div>
                 </div>
               </div>
+
+                <div>
+                  <label className="text-sm font-medium">Tags del proyecto</label>
+                  <div className="mt-2">
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {selectedTags.length === 0 ? (
+                        <span className="text-sm text-muted-foreground">Sin tags seleccionados</span>
+                      ) : (
+                        selectedTags.map(t => (
+                          <span key={t} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/70 text-sm">
+                            <span className="truncate max-w-[14rem] font-medium">{t}</span>
+                            <button type="button" title={`Remover ${t}`} className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-muted/10 hover:bg-destructive/10 text-muted-foreground hover:text-destructive" onClick={() => setSelectedTags(prev => prev.filter(x => x !== t))}>×</button>
+                          </span>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="relative">
+                      <button type="button" className="w-full rounded-md border border-input bg-input px-3 py-2 text-left text-sm text-foreground shadow-sm flex items-center justify-between" onClick={() => setOpenTags(prev => !prev)}>
+                        <span className="truncate">{selectedTags.length === 0 ? 'Añadir tags…' : 'Modificar tags'}</span>
+                        <svg className="h-4 w-4 text-muted-foreground ml-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                          <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
+                        </svg>
+                      </button>
+                      {openTags && (
+                        <div className="absolute z-50 mt-1 w-full max-h-56 overflow-auto rounded-md bg-popover shadow-lg ring-1 ring-black/10 p-2">
+                          <div className="flex flex-col gap-1">
+                            {projectTags.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">Este proyecto no tiene tags definidos.</div>
+                            ) : projectTags.map(tag => (
+                              <label key={tag} className="inline-flex items-center gap-2 px-2 py-1 rounded hover:bg-muted text-sm">
+                                <input type="checkbox" checked={selectedTags.includes(tag)} onChange={(e) => {
+                                  setSelectedTags(prev => e.target.checked ? [...prev, tag] : prev.filter(x => x !== tag));
+                                }} />
+                                <span>{tag}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
               {/* File attachments */}
               <div>

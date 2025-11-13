@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { projectsService, tasksService } from '@/services/firebase.service';
 import { Task, Project, ViewType, TaskStatus } from '@/types';
 import { Button } from '@/components/ui/button';
+import { usersService } from '@/services/firebase.service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
 import GanttChart from '@/components/tasks/GanttChart';
 import TaskEditorModal from '@/components/tasks/TaskEditorModal';
-import { LayoutList, LayoutGrid, Calendar, Plus, Clipboard, Activity, Eye, CheckCircle, ArrowDown, Minus, ArrowUp, Zap, Edit3, Trash2 } from 'lucide-react';
+import { LayoutList, LayoutGrid, Calendar, Plus, Clipboard, Activity, Eye, CheckCircle, ArrowDown, Minus, ArrowUp, Zap, Edit3, Trash2, User, ArrowLeft } from 'lucide-react';
 import ProjectModal from '@/components/projects/ProjectModal';
 import Select from '@/components/ui/select';
 import DatePicker from '@/components/ui/DatePicker';
@@ -19,9 +20,12 @@ import CalendarView from '@/components/tasks/CalendarView';
 export default function ProjectDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [usersMap, setUsersMap] = useState<Record<string, any>>({});
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [viewType, setViewType] = useState<ViewType>('kanban');
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
@@ -68,6 +72,22 @@ export default function ProjectDetailsPage() {
       if (unsubTasks) unsubTasks();
     };
   }, [id]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const all = await usersService.getAll();
+        if (!mounted) return;
+        const map: Record<string, any> = {};
+        (all || []).forEach((u: any) => { map[u.id] = u; });
+        setUsersMap(map);
+      } catch (e) {
+        console.warn('Failed to load users', e);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // Si entramos en modo compacto, forzar una vista soportada (kanban o calendar)
   useEffect(() => {
@@ -176,23 +196,47 @@ export default function ProjectDetailsPage() {
         </div>
         
         <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/projects')} className="h-9 mr-2">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Proyectos
+          </Button>
           <Button variant="outline" onClick={() => setModalOpen(true)}>
             <Edit3 className="h-4 w-4 mr-2" />
             Editar
           </Button>
           
           {/* Project edit modal */}
-          <ProjectModal open={modalOpen} onClose={() => setModalOpen(false)} initial={project} onSave={async (payload: Partial<Project> & { id: string }) => {
-            try {
-              await projectsService.update(payload.id, { name: payload.name, description: payload.description, color: payload.color });
-              const updated = await projectsService.get(payload.id);
-              setProject(updated);
-              toast.success('Proyecto actualizado');
-            } catch (err) {
-              console.error('Error updating project', err);
-              toast.error('No se pudo actualizar el proyecto');
-            }
-          }} />
+          {/* Tag filter */}
+          {project.tags && project.tags.length > 0 && (
+            <div className="ml-4">
+              <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-48">
+                <option value="">Todos los tags</option>
+                {project.tags.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </Select>
+            </div>
+          )}
+          <ProjectModal
+            open={modalOpen}
+            onClose={() => setModalOpen(false)}
+            initial={project}
+            onSave={async (payload: Partial<Project> & { id?: string }) => {
+              try {
+                if (!payload.id) {
+                  toast.error('ID de proyecto faltante');
+                  return;
+                }
+                await projectsService.update(payload.id, { name: payload.name, description: payload.description, color: payload.color });
+                const updated = await projectsService.get(payload.id);
+                setProject(updated);
+                toast.success('Proyecto actualizado');
+              } catch (err) {
+                console.error('Error updating project', err);
+                toast.error('No se pudo actualizar el proyecto');
+              }
+            }}
+          />
           {/* Selector de vista mejorado */}
           <div className="flex rounded-lg border-2 border-border bg-background p-1 shadow-sm">
             <button
@@ -301,59 +345,35 @@ export default function ProjectDetailsPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Estado inicial</label>
                     <Select value={status} onChange={(v) => setStatus(v as TaskStatus)} className="w-full">
-                      <option value="todo">
-                        <div className="flex items-center gap-2">
-                          <Clipboard className="h-4 w-4" />
-                          Por hacer
-                        </div>
-                      </option>
-                      <option value="in-progress">
-                        <div className="flex items-center gap-2">
-                          <Activity className="h-4 w-4" />
-                          En progreso
-                        </div>
-                      </option>
-                      <option value="review">
-                        <div className="flex items-center gap-2">
-                          <Eye className="h-4 w-4" />
-                          En revisión
-                        </div>
-                      </option>
-                      <option value="completed">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4" />
-                          Completada
-                        </div>
-                      </option>
+                        <option value="todo" className="flex items-center gap-2">
+                          <Clipboard className="h-4 w-4 inline-block mr-2" /> Por hacer
+                        </option>
+                        <option value="in-progress" className="flex items-center gap-2">
+                          <Activity className="h-4 w-4 inline-block mr-2" /> En progreso
+                        </option>
+                        <option value="review" className="flex items-center gap-2">
+                          <Eye className="h-4 w-4 inline-block mr-2" /> En revisión
+                        </option>
+                        <option value="completed" className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 inline-block mr-2" /> Completada
+                        </option>
                     </Select>
                 </div>
                 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Prioridad</label>
                   <Select value={priority} onChange={(v) => setPriority(v as any)} className="w-full">
-                    <option value="low">
-                      <div className="flex items-center gap-2">
-                        <ArrowDown className="h-4 w-4" />
-                        Baja
-                      </div>
+                    <option value="low" className="flex items-center gap-2">
+                      <ArrowDown className="h-4 w-4 inline-block mr-2" /> Baja
                     </option>
-                    <option value="medium">
-                      <div className="flex items-center gap-2">
-                        <Minus className="h-4 w-4" />
-                        Media
-                      </div>
+                    <option value="medium" className="flex items-center gap-2">
+                      <Minus className="h-4 w-4 inline-block mr-2" /> Media
                     </option>
-                    <option value="high">
-                      <div className="flex items-center gap-2">
-                        <ArrowUp className="h-4 w-4" />
-                        Alta
-                      </div>
+                    <option value="high" className="flex items-center gap-2">
+                      <ArrowUp className="h-4 w-4 inline-block mr-2" /> Alta
                     </option>
-                    <option value="urgent">
-                      <div className="flex items-center gap-2">
-                        <Zap className="h-4 w-4" />
-                        Urgente
-                      </div>
+                    <option value="urgent" className="flex items-center gap-2">
+                      <Zap className="h-4 w-4 inline-block mr-2" /> Urgente
                     </option>
                   </Select>
                 </div>
@@ -393,7 +413,7 @@ export default function ProjectDetailsPage() {
       {/* Vista de tareas */}
       {viewType === 'kanban' && (
         <KanbanBoard 
-          tasks={tasks} 
+          tasks={tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks} 
           onTaskClick={(task) => setSelectedTask(task)}
           onTaskStatusChange={handleTaskStatusChange}
           onTaskDelete={handleDeleteTask}
@@ -401,7 +421,7 @@ export default function ProjectDetailsPage() {
       )}
 
       {viewType === 'gantt' && (
-        <GanttChart tasks={tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
+        <GanttChart tasks={tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
       )}
 
       {viewType === 'list' && (
@@ -423,10 +443,10 @@ export default function ProjectDetailsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tasks.length === 0 ? (
+                  {((tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks).length === 0) ? (
                     <tr><td colSpan={9} className="p-6 text-muted-foreground text-center">No hay tareas en este proyecto</td></tr>
                   ) : (
-                    tasks.map(task => (
+                    (tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks).map(task => (
                       <tr key={task.id} className="border-t hover:bg-muted/10">
                         <td className="px-4 py-3">{task.title}</td>
                         <td className="px-4 py-3">
@@ -438,7 +458,24 @@ export default function ProjectDetailsPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 capitalize">{task.priority}</td>
-                        <td className="px-4 py-3">{(task.assigneeIds || []).length}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {(task.assigneeIds || []).slice(0,3).map(id => {
+                              const u = usersMap[id];
+                              if (!u) return null;
+                              return (
+                                <span key={id} className="inline-flex items-center gap-2 px-2 py-1 rounded-md bg-muted/20 text-sm">
+                                  <User className="h-4 w-4" />
+                                  <span className="truncate max-w-[120px]">{u.displayName || u.email || u.id}</span>
+                                </span>
+                              );
+                            })}
+                            {(task.assigneeIds || []).length > 3 && (
+                              <span className="text-sm">+{(task.assigneeIds || []).length - 3}</span>
+                            )}
+                            {(task.assigneeIds || []).length === 0 && <span className="text-sm text-muted-foreground">-</span>}
+                          </div>
+                        </td>
                         <td className="px-4 py-3">{(task.tags || []).slice(0,3).join(', ') || '-'}</td>
                         <td className="px-4 py-3">{(task.attachments || []).length}</td>
                         <td className="px-4 py-3">{task.startDate ? new Date(task.startDate).toLocaleDateString() : '-'}</td>
@@ -469,7 +506,7 @@ export default function ProjectDetailsPage() {
 
       {viewType === 'calendar' && (
         <div>
-          <CalendarView tasks={tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
+          <CalendarView tasks={tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
         </div>
       )}
 

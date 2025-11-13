@@ -10,14 +10,40 @@ export const projectsService = {
     const dbToUse = resolveDatabase();
     const projectsRef = ref(dbToUse, 'projects');
     const newProjectRef = push(projectsRef);
+    // Visible log to trace payload
+    try {
+      // eslint-disable-next-line no-console
+      console.log('[projectsService.create] saving project payload', project);
+    } catch (e) {}
     await set(newProjectRef, { ...project, id: newProjectRef.key, createdAt: Date.now() });
+    // Read back and log what was stored
+    try {
+      const snap = await get(newProjectRef);
+      // eslint-disable-next-line no-console
+      console.log('[projectsService.create] stored project', snap.exists() ? snap.val() : null);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[projectsService.create] failed to read back project', e);
+    }
     return newProjectRef.key;
   },
 
   update: async (projectId: string, updates: Partial<Project>) => {
   const dbToUse = resolveDatabase();
   const projectRef = ref(dbToUse, `projects/${projectId}`);
+    try {
+      // eslint-disable-next-line no-console
+      console.log('[projectsService.update] updating project', projectId, updates);
+    } catch (e) {}
     await update(projectRef, { ...updates, updatedAt: Date.now() });
+    try {
+      const snap = await get(projectRef);
+      // eslint-disable-next-line no-console
+      console.log('[projectsService.update] stored project after update', snap.exists() ? snap.val() : null);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[projectsService.update] failed to read back project', e);
+    }
   },
 
   delete: async (projectId: string) => {

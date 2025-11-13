@@ -16,6 +16,8 @@ export default function NewProjectPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#6366f1');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [status, setStatus] = useState<'active' | 'planned' | 'completed'>('active');
 
   const presetColors = [
@@ -52,6 +54,7 @@ export default function NewProjectPage() {
       description,
       color,
       status,
+      tags,
       ownerId: user.id,
       memberIds: [user.id], // El creador es automáticamente miembro
       createdAt: Date.now(),
@@ -141,6 +144,28 @@ export default function NewProjectPage() {
                     </div>
                   </option>
                 </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">Tags del proyecto (opcional)</label>
+              <div className="flex gap-2 items-center">
+                <input value={tagInput} onChange={e => setTagInput(e.target.value)} placeholder="Añadir tag" className="rounded-lg border-2 border-border bg-input px-3 py-2 w-full" />
+                <button type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground" onClick={() => {
+                  const t = tagInput.trim();
+                  if (t && !tags.includes(t)) {
+                    setTags(prev => [...prev, t]);
+                  }
+                  setTagInput('');
+                }}>+</button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {tags.map(t => (
+                  <span key={t} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/70 text-sm">
+                    <span className="truncate max-w-[12rem]">{t}</span>
+                    <button type="button" onClick={() => setTags(prev => prev.filter(x => x !== t))} className="h-5 w-5 rounded-full inline-flex items-center justify-center text-sm">×</button>
+                  </span>
+                ))}
               </div>
             </div>
 

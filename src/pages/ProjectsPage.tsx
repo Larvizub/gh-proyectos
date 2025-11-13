@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, FolderKanban, CheckCircle, Calendar, Trophy, Users, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { projectsService } from '@/services/firebase.service';
@@ -13,6 +15,7 @@ export function ProjectsPage() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
@@ -33,7 +36,6 @@ export function ProjectsPage() {
     // No usamos el overlay completo aquí para evitar un parpadeo al navegar entre rutas.
     return <PageLoader message="Cargando proyectos..." overlay={false} />;
   }
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -45,11 +47,9 @@ export function ProjectsPage() {
             Gestiona tus proyectos y tareas
           </p>
         </div>
-        <Button asChild size="lg" className="shadow-lg hover:shadow-xl transition-shadow">
-          <Link to="/projects/new">
-            <Plus className="mr-2 h-5 w-5" />
-            Nuevo Proyecto
-          </Link>
+        <Button size="lg" className="shadow-lg hover:shadow-xl transition-shadow" onClick={() => navigate('/projects/new')}>
+          <Plus className="mr-2 h-5 w-5" />
+          Nuevo Proyecto
         </Button>
       </div>
 
@@ -63,11 +63,9 @@ export function ProjectsPage() {
             <p className="text-muted-foreground text-center mb-6 max-w-md">
               Comienza creando tu primer proyecto y empieza a organizar tus tareas de manera eficiente
             </p>
-            <Button asChild size="lg" className="shadow-lg">
-              <Link to="/projects/new">
-                <Plus className="mr-2 h-5 w-5" />
-                Crear Proyecto
-              </Link>
+            <Button size="lg" className="shadow-lg" onClick={() => navigate('/projects/new')}>
+              <Plus className="mr-2 h-5 w-5" />
+              Crear Proyecto
             </Button>
           </CardContent>
         </Card>
@@ -156,20 +154,45 @@ export function ProjectsPage() {
             </Link>
           ))}
         </div>
-          {editingProject && (
-            <ProjectModal open={modalOpen} onClose={() => { setModalOpen(false); setEditingProject(null); }} initial={editingProject} onSave={async (payload: Partial<Project> & { id: string }) => {
-              try {
-                await projectsService.update(payload.id, { name: payload.name, description: payload.description, color: payload.color });
-                // refresh list is handled by projectsService.listen
-                setModalOpen(false);
-                setEditingProject(null);
+      )}
+      {editingProject && modalOpen && (
+        <ProjectModal
+          open={modalOpen}
+          onClose={() => { setModalOpen(false); setEditingProject(null); }}
+          initial={editingProject}
+          onSave={async (payload: Partial<Project> & { id?: string }) => {
+            try {
+              if (payload.id) {
+                await projectsService.update(payload.id, { name: payload.name, description: payload.description, color: payload.color, status: payload.status, tags: payload.tags });
                 toast.success('Proyecto actualizado');
-              } catch (err) {
-                console.error('Error updating project', err);
-                toast.error('No se pudo actualizar el proyecto');
+              } else {
+                if (!user) {
+                  toast.error('Debes iniciar sesión para crear proyectos');
+                  return;
+                }
+                const createPayload: any = {
+                  name: payload.name,
+                  description: payload.description,
+                  color: payload.color || '#6366f1',
+                  tags: payload.tags || [],
+                  status: 'active',
+                  ownerId: user.id,
+                  memberIds: [user.id],
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                };
+                await projectsService.create(createPayload);
+                toast.success('Proyecto creado correctamente');
               }
-            }} />
-          )}
+              setModalOpen(false);
+              setEditingProject(null);
+            } catch (err) {
+              console.error('Error saving project', err);
+              toast.error('No se pudo guardar el proyecto');
+              throw err;
+            }
+          }}
+        />
       )}
     </div>
   );

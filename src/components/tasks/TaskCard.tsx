@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { usersService } from '@/services/firebase.service';
+import { useEffect, useState } from 'react';
 
 interface TaskCardProps {
   task: Task;
@@ -72,6 +74,7 @@ export function TaskCard({ task, onClick, onDelete }: TaskCardProps) {
   const tags = task?.tags ?? [];
   const assigneeIds = task?.assigneeIds ?? [];
   const attachments = task?.attachments ?? [];
+  const [assignees, setAssignees] = useState<any[]>([]);
 
   // normalize and validate dueDate (could be number, string, or invalid)
   const rawDue = task?.dueDate;
@@ -89,6 +92,21 @@ export function TaskCard({ task, onClick, onDelete }: TaskCardProps) {
     }
   }
   
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const users = await Promise.all((assigneeIds || []).map(async (id) => {
+          try { return await usersService.get(id); } catch (e) { return null; }
+        }));
+        if (!mounted) return;
+        setAssignees(users.filter(Boolean) as any[]);
+      } catch (e) {
+        console.warn('Failed to load assignees', e);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [assigneeIds]);
   return (
     <Card 
       className="hover:shadow-xl transition-all duration-200 cursor-pointer border-2 hover:border-primary/50 hover:scale-[1.02] group ring-1 ring-transparent dark:ring-white/5 relative"
@@ -106,7 +124,7 @@ export function TaskCard({ task, onClick, onDelete }: TaskCardProps) {
             {/* Action icons: edit (opens editor via parent click) and delete */}
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); /* parent should open editor via onClick */ }}
+              onClick={(e) => { e.stopPropagation(); onClick && onClick(); }}
               className="p-1 rounded hover:bg-muted text-muted-foreground"
               title="Editar"
             >
@@ -162,10 +180,10 @@ export function TaskCard({ task, onClick, onDelete }: TaskCardProps) {
               </div>
             )}
             
-            {assigneeIds.length > 0 && (
+            {assignees.length > 0 && (
               <div className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5">
                 <User className="h-3.5 w-3.5" />
-                <span className="font-medium">{assigneeIds.length}</span>
+                <span className="font-medium truncate max-w-[10rem]">{assignees.map(a => a.displayName || a.email).slice(0,3).join(', ')}</span>
               </div>
             )}
             
