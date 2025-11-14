@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
-import { Home, FolderKanban, Settings, Users, User, LogOut, Key } from 'lucide-react';
+import { Home, FolderKanban, Users, User, LogOut, Key } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -22,11 +22,6 @@ const navigationItems = [
     title: 'Proyectos',
     href: '/projects',
     icon: FolderKanban,
-  },
-  {
-    title: 'Configuración',
-    href: '/settings',
-    icon: Settings,
   },
 ];
 

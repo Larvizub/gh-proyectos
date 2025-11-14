@@ -47,7 +47,6 @@ function App() {
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:id" element={<ProjectDetailsPage />} />
               <Route path="/projects/new" element={<NewProjectPage />} />
-              <Route path="/settings" element={<div>Configuración</div>} />
               <Route path="/profile" element={<UserProfilePage />} />
               <Route path="/admin" element={<Navigate to="/admin/users" />} />
               <Route path="/admin/users" element={<UsersPage />} />
