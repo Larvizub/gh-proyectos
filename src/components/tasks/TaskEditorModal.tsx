@@ -59,15 +59,17 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
 
   useEffect(() => {
     if (!task) return;
+    let mounted = true;
     (async () => {
       try {
         const p = await projectsService.get(task.projectId);
-        setProjectTags(p?.tags || []);
+        if (mounted) setProjectTags(p?.tags || []);
       } catch (err) {
         console.warn('No se pudieron cargar tags del proyecto', err);
-        setProjectTags([]);
+        if (mounted) setProjectTags([]);
       }
     })();
+    return () => { mounted = false; };
   }, [task]);
 
   function dateInputToTimestamp(value: string) {

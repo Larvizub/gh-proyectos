@@ -16,6 +16,7 @@ import DatePicker from '@/components/ui/DatePicker';
 import PageLoader from '@/components/PageLoader';
 import { useAuth } from '@/contexts/AuthContext';
 import CalendarView from '@/components/tasks/CalendarView';
+import { useTasksCache } from '@/hooks/useTasksCache';
 
 export default function ProjectDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,7 +24,7 @@ export default function ProjectDetailsPage() {
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { tasks } = useTasksCache(id);
   const [usersMap, setUsersMap] = useState<Record<string, any>>({});
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -54,22 +55,24 @@ export default function ProjectDetailsPage() {
   useEffect(() => {
     if (!id) return;
 
-    let unsubTasks: (() => void) | undefined;
+    let mounted = true;
 
     (async () => {
       setLoading(true);
-      const p = await projectsService.get(id);
-      setProject(p);
-      if (p) {
-        // nothing else here; modal will read project from state when opened
+      try {
+        const p = await projectsService.get(id);
+        if (mounted) {
+          setProject(p);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error loading project:', error);
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
-
-      unsubTasks = tasksService.listen(id, (ts) => setTasks(ts));
     })();
 
     return () => {
-      if (unsubTasks) unsubTasks();
+      mounted = false;
     };
   }, [id]);
 

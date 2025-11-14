@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, FolderKanban, CheckCircle, Calendar, Trophy, Users, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -21,16 +21,19 @@ export function ProjectsPage() {
 
   useEffect(() => {
     const unsubscribe = projectsService.listen((projectsData) => {
-      // Filtrar proyectos donde el usuario es miembro o dueño
-      const userProjects = projectsData.filter(
-        p => p.ownerId === user?.id || p.memberIds.includes(user?.id || '')
-      );
-      setProjects(userProjects);
+      setProjects(projectsData);
       setLoading(false);
     });
 
     return unsubscribe;
-  }, [user]);
+  }, []);
+  
+  // Memorizar el filtrado para evitar recálculos en cada render
+  const userProjects = useMemo(() => {
+    return projects.filter(
+      p => p.ownerId === user?.id || p.memberIds?.includes(user?.id || '')
+    );
+  }, [projects, user?.id]);
 
   if (loading) {
     // No usamos el overlay completo aquí para evitar un parpadeo al navegar entre rutas.
@@ -71,7 +74,7 @@ export function ProjectsPage() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {projects.map(project => (
+          {userProjects.map(project => (
             <Link key={project.id} to={`/projects/${project.id}`}> 
               <Card className="hover:shadow-2xl transition-all duration-300 cursor-pointer h-full border-2 hover:border-primary/50 hover:scale-[1.02] group">
                 <CardHeader className="pb-4">

@@ -1,0 +1,13 @@
+{
+  "projects": {},
+  "targets": {
+    "gh-proyectos": {
+      "database": {
+        "corporativo": [
+          "gh-proyectos-default-rtdb"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

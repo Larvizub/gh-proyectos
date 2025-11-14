@@ -15,8 +15,8 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { usersService } from '@/services/firebase.service';
-import { useEffect, useState } from 'react';
+import { memo } from 'react';
+import { useUsers } from '@/contexts/UsersContext';
 
 interface TaskCardProps {
   task: Task;
@@ -66,7 +66,9 @@ const priorityConfig: Record<TaskPriority, { label: string; className: string }>
   }
 };
 
-export function TaskCard({ task, onClick, onDelete }: TaskCardProps) {
+function TaskCardComponent({ task, onClick, onDelete }: TaskCardProps) {
+  const { usersMap } = useUsers();
+  
   // defensive defaults in case some fields are missing at runtime
   const statusInfo = statusConfig[task?.status ?? 'todo'];
   const priorityInfo = priorityConfig[task?.priority ?? 'low'];
@@ -74,7 +76,7 @@ export function TaskCard({ task, onClick, onDelete }: TaskCardProps) {
   const tags = task?.tags ?? [];
   const assigneeIds = task?.assigneeIds ?? [];
   const attachments = task?.attachments ?? [];
-  const [assignees, setAssignees] = useState<any[]>([]);
+  const assignees = assigneeIds.map(id => usersMap[id]).filter(Boolean);
 
   // normalize and validate dueDate (could be number, string, or invalid)
   const rawDue = task?.dueDate;
@@ -92,21 +94,6 @@ export function TaskCard({ task, onClick, onDelete }: TaskCardProps) {
     }
   }
   
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const users = await Promise.all((assigneeIds || []).map(async (id) => {
-          try { return await usersService.get(id); } catch (e) { return null; }
-        }));
-        if (!mounted) return;
-        setAssignees(users.filter(Boolean) as any[]);
-      } catch (e) {
-        console.warn('Failed to load assignees', e);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [assigneeIds]);
   return (
     <Card 
       className="hover:shadow-xl transition-all duration-200 cursor-pointer border-2 hover:border-primary/50 hover:scale-[1.02] group ring-1 ring-transparent dark:ring-white/5 relative"
@@ -205,3 +192,5 @@ export function TaskCard({ task, onClick, onDelete }: TaskCardProps) {
     </Card>
   );
 }
+
+export const TaskCard = memo(TaskCardComponent);

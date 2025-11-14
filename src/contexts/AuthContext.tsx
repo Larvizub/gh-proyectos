@@ -32,9 +32,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let userListenerUnsub: (() => void) | null = null;
+    let mounted = true;
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         console.log("Firebase user authenticated:", fbUser.uid);
+        if (!mounted) return;
         setFirebaseUser(fbUser);
         const userData: User = {
           id: fbUser.uid,
@@ -47,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
+        if (!mounted) return;
         setUser(userData);
 
         // Persistir/actualizar usuario en la base de datos para que esté disponible en la app
@@ -114,12 +117,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               createdAt: remote.createdAt || userData.createdAt,
               updatedAt: remote.updatedAt || userData.updatedAt,
             };
-            setUser(merged);
+            if (mounted) setUser(merged);
           }
 
           // subscribe to changes so role updates propagate to the UI
           onValue(userRef, (s) => {
-            if (!s.exists()) return;
+            if (!mounted || !s.exists()) return;
             const remote = s.val();
             setUser((prev) => ({
               ...(prev || userData),
@@ -138,12 +141,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         console.log("No Firebase user authenticated");
-        setFirebaseUser(null);
-        setUser(null);
+        if (mounted) {
+          setFirebaseUser(null);
+          setUser(null);
+        }
       }
-      setLoading(false);
+      if (mounted) setLoading(false);
     });
     return () => {
+      mounted = false;
       try { unsubscribe(); } catch (e) {}
       try { if (userListenerUnsub) userListenerUnsub(); } catch (e) {}
     };

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, memo, useCallback, useMemo } from 'react';
 import { Task, TaskStatus } from '@/types';
 import { TaskCard } from './TaskCard';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clipboard, Zap, Eye, CheckCircle2 } from 'lucide-react';
+import { PERFORMANCE_LIMITS } from '@/config/performance';
 import { 
   DndContext, 
   DragEndEvent, 
@@ -39,7 +40,7 @@ interface SortableTaskCardProps {
   onDelete?: (taskId: string) => void;
 }
 
-function SortableTaskCard({ task, onTaskClick, onDelete }: SortableTaskCardProps) {
+const SortableTaskCard = memo(function SortableTaskCard({ task, onTaskClick, onDelete }: SortableTaskCardProps) {
   const {
     attributes,
     listeners,
@@ -65,12 +66,15 @@ function SortableTaskCard({ task, onTaskClick, onDelete }: SortableTaskCardProps
   <TaskCard task={task} onClick={() => onTaskClick(task)} onDelete={() => onDelete && onDelete(task.id)} />
     </div>
   );
-}
+});
 
 export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDelete }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  
+  // Límite de tareas visibles por columna para rendimiento
+  const MAX_TASKS_PER_COLUMN = PERFORMANCE_LIMITS.MAX_TASKS_PER_KANBAN_COLUMN;
 
-  function Column({ column, columnTasks }: { column: (typeof COLUMNS)[0]; columnTasks: Task[] }) {
+  const Column = memo(function Column({ column, columnTasks }: { column: (typeof COLUMNS)[0]; columnTasks: Task[] }) {
     // register the column as a droppable area so tasks can be dropped directly onto it
     const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: column.id });
 
@@ -119,7 +123,7 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDele
         </Card>
       </div>
     );
-  }
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -129,12 +133,12 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDele
     })
   );
 
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     const task = tasks.find(t => t.id === event.active.id);
     setActiveTask(task || null);
-  };
+  }, [tasks]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     
     if (!over) {
@@ -173,11 +177,17 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDele
     }
 
     setActiveTask(null);
-  };
+  }, [tasks, onTaskStatusChange]);
 
-  const getTasksByStatus = (status: TaskStatus) => {
-    return tasks.filter(task => task.status === status);
-  };
+  const getTasksByStatus = useCallback((status: TaskStatus) => {
+    const filtered = tasks.filter(task => task.status === status);
+    // Retornar solo las primeras MAX_TASKS_PER_COLUMN para rendimiento
+    return filtered.slice(0, MAX_TASKS_PER_COLUMN);
+  }, [tasks]);
+  
+  const getTasksCount = useCallback((status: TaskStatus) => {
+    return tasks.filter(task => task.status === status).length;
+  }, [tasks]);
 
   return (
     <DndContext
@@ -188,8 +198,17 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDele
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 h-full">
         {COLUMNS.map((column) => {
           const columnTasks = getTasksByStatus(column.id);
+          const totalCount = getTasksCount(column.id);
+          const hasMore = totalCount > MAX_TASKS_PER_COLUMN;
           return (
-            <Column key={column.id} column={column} columnTasks={columnTasks} />
+            <div key={column.id} className="flex flex-col">
+              <Column key={column.id} column={column} columnTasks={columnTasks} />
+              {hasMore && (
+                <div className="mt-2 text-center text-sm text-muted-foreground">
+                  Mostrando {columnTasks.length} de {totalCount} tareas
+                </div>
+              )}
+            </div>
           );
         })}
       </div>

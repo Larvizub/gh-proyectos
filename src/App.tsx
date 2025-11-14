@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { UsersProvider } from './contexts/UsersContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import { MainLayout } from './components/layout/MainLayout';
 import { LoginPage } from './pages/LoginPage';
@@ -31,9 +32,10 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <ErrorBoundary>
-        {/* Global toaster for sonner to show toast notifications */}
-        <Toaster position="top-right" />
+        <UsersProvider>
+          <ErrorBoundary>
+          {/* Global toaster for sonner to show toast notifications */}
+          <Toaster position="top-right" />
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -57,6 +59,7 @@ function App() {
           </Routes>
         </BrowserRouter>
         </ErrorBoundary>
+        </UsersProvider>
       </AuthProvider>
     </ThemeProvider>
   );

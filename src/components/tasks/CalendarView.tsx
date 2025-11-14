@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { Task } from '@/types';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, format, isSameDay, isWithinInterval, subMonths, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -30,18 +30,18 @@ export default function CalendarView({ tasks, onTaskClick, onTaskDelete }: Calen
     return weeksArr;
   }, [currentMonth]);
 
-  function tasksForDay(day: Date) {
+  const startOfDay = useCallback((d: Date) => {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }, []);
+
+  const tasksForDay = useCallback((day: Date) => {
     return tasks.filter(t => {
       if (!t.startDate && !t.dueDate) return isSameDay(new Date(t.createdAt), day);
       const start = t.startDate ? new Date(t.startDate) : new Date(t.createdAt);
       const end = t.dueDate ? new Date(t.dueDate) : start;
       return isWithinInterval(day, { start: startOfDay(start), end: startOfDay(end) });
     });
-  }
-
-  function startOfDay(d: Date) {
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  }
+  }, [tasks, startOfDay]);
 
   return (
     <div className="w-full">

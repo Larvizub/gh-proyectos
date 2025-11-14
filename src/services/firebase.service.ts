@@ -1,7 +1,7 @@
 import { database, getDatabaseForSite, resolveDatabase, DATABASE_URLS, functions as cloudFunctions, SiteKey } from '@/config/firebase';
 import { ref, push, set, get, update, remove, onValue, off, query, orderByChild, equalTo } from 'firebase/database';
 import { httpsCallable } from 'firebase/functions';
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref as storageRef, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Project, Task, Comment, User } from '@/types';
 
 // Proyectos
@@ -99,7 +99,13 @@ export const tasksService = {
   update: async (taskId: string, updates: Partial<Task>) => {
   const dbToUse = resolveDatabase();
   const taskRef = ref(dbToUse, `tasks/${taskId}`);
-    await update(taskRef, { ...updates, updatedAt: Date.now() });
+    // Protect against indefinite hangs by racing the update with a timeout
+    const op = update(taskRef, { ...updates, updatedAt: Date.now() });
+    const timeoutMs = 15000; // 15s
+    await Promise.race([
+      op,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('update timeout')), timeoutMs)),
+    ]);
   },
 
   delete: async (taskId: string) => {
@@ -153,12 +159,23 @@ export const tasksService = {
     const path = `taskAttachments/${taskId}/${Date.now()}_${file.name}`;
     const fileRef = storageRef(storage, path);
 
-    const snapshot = await uploadBytesResumable(fileRef, file);
-    const url = await getDownloadURL(snapshot.ref);
+    // Use uploadBytes (promise) to ensure the upload finishes and returns an upload result
+    // Fallback to uploadBytesResumable if uploadBytes is not available for the environment
+    let uploadResult: any;
+    try {
+      uploadResult = await uploadBytes(fileRef, file as any);
+    } catch (e) {
+      // As a fallback, try resumable upload (attach a small wrapper promise)
+      uploadResult = await new Promise((resolve, reject) => {
+        const task = uploadBytesResumable(fileRef, file as any);
+        task.on('state_changed', () => {}, (err) => reject(err), () => resolve((task as any).snapshot));
+      });
+    }
+    const url = await getDownloadURL((uploadResult as any).ref);
 
     // Create attachment object
     const attachment = {
-      id: snapshot.ref.name,
+      id: (fileRef as any).name || path.split('/').pop(),
       name: file.name,
       url,
       uploadedBy: uploadedBy || null,

@@ -32,7 +32,7 @@ export function TaskComments({ taskId, inputIdSuffix }: TaskCommentsProps) {
     });
 
     return unsubscribe;
-  }, [taskId, commentsService]);
+  }, [taskId]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
