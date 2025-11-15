@@ -99,7 +99,8 @@ export default function UsersPage() {
           <CardContent className="p-6 text-muted-foreground">No hay usuarios registrados.</CardContent>
         </Card>
       ) : (
-        <Card>
+        <>
+        <Card className="hidden sm:block">
           <CardContent className="p-0 overflow-x-auto">
             <table className="w-full table-auto">
             <thead>
@@ -158,6 +159,40 @@ export default function UsersPage() {
             </table>
           </CardContent>
         </Card>
+
+        {/* Mobile list */}
+        <div className="block sm:hidden space-y-3">
+          {users.map((u) => (
+            <Card key={u.id}>
+              <CardContent>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-medium">{u.displayName}</div>
+                    <div className="text-sm text-muted-foreground">{u.email}</div>
+                    <div className="text-sm mt-2">Rol: <strong>{u.role || '—'}</strong></div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex gap-2">
+                      <button title="Editar" className="p-1 rounded hover:bg-muted" onClick={() => startEdit(u)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" fill="currentColor" />
+                          <path d="M20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" fill="currentColor" />
+                        </svg>
+                      </button>
+                      <button title="Eliminar" className="p-1 rounded hover:bg-red-50 text-red-600" onClick={() => onDelete(u.id)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12z" fill="currentColor" />
+                          <path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        </>
       )}
     </div>
   );

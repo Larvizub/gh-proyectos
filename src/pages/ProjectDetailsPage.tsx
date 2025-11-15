@@ -80,7 +80,6 @@ export default function ProjectDetailsPage() {
       mounted = false;
     };
   }, [id]);
-
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -201,19 +200,19 @@ export default function ProjectDetailsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div className="w-full sm:w-auto">
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
             <div 
               className="h-6 w-6 rounded-lg shadow-sm"
               style={{ backgroundColor: project.color }}
             />
             {project.name}
           </h1>
-          <p className="text-muted-foreground mt-2">{project.description}</p>
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">{project.description}</p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
           <Button variant="ghost" size="sm" onClick={() => navigate('/projects')} className="h-9 mr-2">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Proyectos
@@ -248,8 +247,8 @@ export default function ProjectDetailsPage() {
           {/* Project edit modal */}
           {/* Tag filter */}
           {project.tags && project.tags.length > 0 && (
-            <div className="ml-4">
-              <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-48">
+            <div className="ml-4 w-full sm:w-auto">
+              <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full sm:w-48">
                 <option value="">Todos los tags</option>
                 {project.tags.map(t => (
                   <option key={t} value={t}>{t}</option>
