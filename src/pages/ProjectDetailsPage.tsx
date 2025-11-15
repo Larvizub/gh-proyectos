@@ -200,55 +200,87 @@ export default function ProjectDetailsPage() {
 
   return (
     <div className="space-y-6 overflow-x-hidden">
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div className="w-full sm:w-auto">
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
-            <div 
-              className="h-6 w-6 rounded-lg shadow-sm"
-              style={{ backgroundColor: project.color }}
-            />
-            {project.name}
-          </h1>
-          <p className="text-muted-foreground mt-2 text-sm sm:text-base">{project.description}</p>
-        </div>
-        
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/projects')} className="h-9 mr-2">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Proyectos
-          </Button>
-          <button
-            type="button"
-            aria-label="Editar proyecto"
-            title="Editar proyecto"
-            onClick={() => setModalOpen(true)}
-            className="ml-2 relative group inline-flex items-center justify-center rounded-md p-2 text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <Edit3 className="h-4 w-4" />
-            <span className="sr-only">Editar proyecto</span>
-            <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-background/90 text-sm px-2 py-1 text-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 shadow-sm">
-              Editar proyecto
-            </span>
-          </button>
-          <button
-            type="button"
-            aria-label="Eliminar proyecto"
-            title="Eliminar proyecto"
-            onClick={() => setDeleteModalOpen(true)}
-            className="ml-2 relative group inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-600/10 focus:outline-none focus:ring-2 focus:ring-red-400"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="sr-only">Eliminar proyecto</span>
-            <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-background/90 text-sm px-2 py-1 text-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 shadow-sm">
-              Eliminar proyecto
-            </span>
-          </button>
+      {/* Header del proyecto */}
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+              <div 
+                className="h-6 w-6 rounded-lg shadow-sm flex-shrink-0"
+                style={{ backgroundColor: project.color }}
+              />
+              <span className="truncate">{project.name}</span>
+            </h1>
+            <p className="text-muted-foreground mt-2 text-sm sm:text-base">{project.description}</p>
+          </div>
           
-          {/* Project edit modal */}
-          {/* Tag filter */}
+          {/* Botones de acción del proyecto - solo desktop */}
+          <div className="hidden sm:flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/projects')} className="h-9">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Proyectos
+            </Button>
+            <button
+              type="button"
+              aria-label="Editar proyecto"
+              title="Editar proyecto"
+              onClick={() => setModalOpen(true)}
+              className="relative group inline-flex items-center justify-center rounded-md p-2 text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <Edit3 className="h-4 w-4" />
+              <span className="sr-only">Editar proyecto</span>
+              <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-background/90 text-sm px-2 py-1 text-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 shadow-sm">
+                Editar proyecto
+              </span>
+            </button>
+            <button
+              type="button"
+              aria-label="Eliminar proyecto"
+              title="Eliminar proyecto"
+              onClick={() => setDeleteModalOpen(true)}
+              className="relative group inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-600/10 focus:outline-none focus:ring-2 focus:ring-red-400"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="sr-only">Eliminar proyecto</span>
+              <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-background/90 text-sm px-2 py-1 text-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 shadow-sm">
+                Eliminar proyecto
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Toolbar de controles - responsivo optimizado */}
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          {/* Fila 1 en mobile: Botón volver y acciones - solo mobile */}
+          <div className="flex sm:hidden items-center justify-between gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/projects')} className="h-9">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Proyectos
+            </Button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Editar proyecto"
+                onClick={() => setModalOpen(true)}
+                className="inline-flex items-center justify-center rounded-md p-2 text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <Edit3 className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Eliminar proyecto"
+                onClick={() => setDeleteModalOpen(true)}
+                className="inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-600/10 focus:outline-none focus:ring-2 focus:ring-red-400"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Fila 2: Filtro de tags (si existe) */}
           {project.tags && project.tags.length > 0 && (
-            <div className="ml-4 w-full sm:w-auto">
-              <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full sm:w-48">
+            <div className="w-full sm:w-auto sm:min-w-[200px]">
+              <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full">
                 <option value="">Todos los tags</option>
                 {project.tags.map(t => (
                   <option key={t} value={t}>{t}</option>
@@ -256,169 +288,184 @@ export default function ProjectDetailsPage() {
               </Select>
             </div>
           )}
-          <ProjectModal
-            open={modalOpen}
-            onClose={() => setModalOpen(false)}
-            initial={project}
-            onSave={async (payload: Partial<Project> & { id?: string }) => {
-              try {
-                if (!payload.id) {
-                  toast.error('ID de proyecto faltante');
-                  return;
-                }
-                await projectsService.update(payload.id, { name: payload.name, description: payload.description, color: payload.color });
-                const updated = await projectsService.get(payload.id);
-                setProject(updated);
-                toast.success('Proyecto actualizado');
-              } catch (err) {
-                console.error('Error updating project', err);
-                toast.error('No se pudo actualizar el proyecto');
-              }
-            }}
-          />
-          {/* Delete confirmation modal */}
-          {deleteModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center">
-              <div className="fixed inset-0 bg-black/40" onClick={() => setDeleteModalOpen(false)} />
-              <div className="relative w-full max-w-lg z-10">
-                <Card className="shadow-lg">
-                  <CardHeader>
-                    <CardTitle>Confirmar eliminación</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="text-sm text-muted-foreground">
-                      Estás a punto de eliminar el proyecto <strong>{project?.name}</strong>. Esta acción eliminará todas las tareas asociadas y los tags del proyecto y no se puede deshacer. ¿Deseas continuar?
-                    </div>
 
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>Cancelar</Button>
-                      <Button
-                        variant="destructive"
-                        onClick={async () => {
-                          if (!project?.id) return;
-                          setDeleteModalOpen(false);
-                          try {
-                            await toast.promise((async () => {
-                              // obtener tareas del proyecto y eliminarlas
-                              const projTasks = await tasksService.getByProject(project.id);
-                              for (const t of projTasks) {
-                                try {
-                                  await tasksService.delete(t.id!);
-                                } catch (e) {
-                                  // continuar con las demás incluso si una falla
-                                  console.warn('Failed to delete task', t.id, e);
-                                }
-                              }
-                              // finalmente eliminar el proyecto
-                              await projectsService.delete(project.id);
-                            })(), {
-                              loading: 'Eliminando proyecto y tareas...',
-                              success: 'Proyecto y tareas eliminados',
-                              error: (err) => `Error: ${err?.message || 'No se pudo eliminar el proyecto'}`,
-                            });
-                            navigate('/projects');
-                          } catch (err) {
-                            console.error('Error deleting project', err);
-                            toast.error('No se pudo eliminar el proyecto');
-                          }
-                        }}
-                      >Eliminar</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+          {/* Fila 3: Selector de vistas y botón nueva tarea */}
+          <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-between sm:justify-end">
+            {/* Selector de vista - compacto en mobile */}
+            <div className="flex rounded-lg border-2 border-border bg-background p-0.5 sm:p-1 shadow-sm">
+              <button
+                onClick={() => {
+                  if (isCompact) {
+                    toast('La vista Lista no está disponible en pantallas pequeñas.');
+                    return;
+                  }
+                  setViewType('list');
+                }}
+                className={`flex items-center justify-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-all ${
+                  viewType === 'list' 
+                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                    : 'hover:bg-muted text-muted-foreground'
+                } ${isCompact ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={isCompact ? 'Lista no disponible en pantallas pequeñas' : 'Vista de lista'}
+              >
+                <LayoutList className="h-4 w-4" />
+                <span className="text-xs sm:text-sm font-medium hidden lg:inline">Lista</span>
+              </button>
+              <button
+                onClick={() => setViewType('kanban')}
+                className={`flex items-center justify-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-all ${
+                  viewType === 'kanban' 
+                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                    : 'hover:bg-muted text-muted-foreground'
+                }`}
+                title="Vista Kanban"
+              >
+                <LayoutGrid className="h-4 w-4" />
+                <span className="text-xs sm:text-sm font-medium hidden lg:inline">Kanban</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (isCompact) {
+                    toast('La vista Gantt no está disponible en pantallas pequeñas.');
+                    return;
+                  }
+                  setViewType('gantt');
+                }}
+                className={`flex items-center justify-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-all ${
+                  viewType === 'gantt'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'hover:bg-muted text-muted-foreground'
+                } ${isCompact ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={isCompact ? 'Gantt no disponible en pantallas pequeñas' : 'Vista Gantt'}
+              >
+                <Activity className="h-4 w-4" />
+                <span className="text-xs sm:text-sm font-medium hidden lg:inline">Gantt</span>
+              </button>
+              <button
+                onClick={() => setViewType('calendar')}
+                className={`flex items-center justify-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-all ${
+                  viewType === 'calendar' 
+                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                    : 'hover:bg-muted text-muted-foreground'
+                }`}
+                title="Vista de calendario"
+              >
+                <Calendar className="h-4 w-4" />
+                <span className="text-xs sm:text-sm font-medium hidden lg:inline">Calendario</span>
+              </button>
             </div>
-          )}
-          {/* Task delete confirmation modal */}
-          {taskDeleteModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center">
-              <div className="fixed inset-0 bg-black/40" onClick={() => { setTaskDeleteModalOpen(false); setTaskToDelete(null); }} />
-              <div className="relative w-full max-w-md z-10">
-                <Card className="shadow-lg">
-                  <CardHeader>
-                    <CardTitle>Eliminar tarea</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="text-sm text-muted-foreground">
-                      Estás a punto de eliminar la tarea <strong>{taskToDelete?.title}</strong>. Esta acción no se puede deshacer. ¿Deseas continuar?
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => { setTaskDeleteModalOpen(false); setTaskToDelete(null); }}>Cancelar</Button>
-                      <Button variant="destructive" onClick={confirmDeleteTask}>Eliminar</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          )}
-          {/* Selector de vista mejorado */}
-          <div className="flex rounded-lg border-2 border-border bg-background p-1 shadow-sm">
-            <button
-              onClick={() => setViewType('list')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                viewType === 'list' 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'hover:bg-muted text-muted-foreground'
-              }`}
-              title="Vista de lista"
+            
+            {/* Botón nueva tarea */}
+            <Button 
+              onClick={() => setShowNewTaskForm(!showNewTaskForm)}
+              className="h-9 sm:h-11 shadow-sm whitespace-nowrap"
             >
-              <LayoutList className="h-4 w-4" />
-              <span className="text-sm font-medium hidden sm:inline">Lista</span>
-            </button>
-            <button
-              onClick={() => setViewType('kanban')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                viewType === 'kanban' 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'hover:bg-muted text-muted-foreground'
-              }`}
-              title="Vista Kanban"
-            >
-              <LayoutGrid className="h-4 w-4" />
-              <span className="text-sm font-medium hidden sm:inline">Kanban</span>
-            </button>
-            <button
-              onClick={() => {
-                if (isCompact) {
-                  toast('Las vistas Gantt y Lista no están disponibles en pantallas pequeñas. Se ha cambiado a Kanban.');
-                  return;
-                }
-                setViewType('gantt');
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                viewType === 'gantt'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'hover:bg-muted text-muted-foreground'
-              } ${isCompact ? 'opacity-50 cursor-not-allowed' : ''}`}
-              title={isCompact ? 'Gantt no disponible en pantallas pequeñas' : 'Vista Gantt'}
-            >
-              <Activity className="h-4 w-4" />
-              <span className="text-sm font-medium hidden sm:inline">Gantt</span>
-            </button>
-            <button
-              onClick={() => setViewType('calendar')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                viewType === 'calendar' 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'hover:bg-muted text-muted-foreground'
-              }`}
-              title="Vista de calendario"
-            >
-              <Calendar className="h-4 w-4" />
-              <span className="text-sm font-medium hidden sm:inline">Calendario</span>
-            </button>
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="hidden xs:inline">Nueva Tarea</span>
+              <span className="xs:hidden">Nueva</span>
+            </Button>
           </div>
-          
-          <Button 
-            onClick={() => setShowNewTaskForm(!showNewTaskForm)}
-            className="h-11 shadow-sm"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Nueva Tarea</span>
-            <span className="sm:hidden">Nueva</span>
-          </Button>
         </div>
       </div>
+
+      {/* Modales */}
+      <ProjectModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        initial={project}
+        onSave={async (payload: Partial<Project> & { id?: string }) => {
+          try {
+            if (!payload.id) {
+              toast.error('ID de proyecto faltante');
+              return;
+            }
+            await projectsService.update(payload.id, { name: payload.name, description: payload.description, color: payload.color });
+            const updated = await projectsService.get(payload.id);
+            setProject(updated);
+            toast.success('Proyecto actualizado');
+          } catch (err) {
+            console.error('Error updating project', err);
+            toast.error('No se pudo actualizar el proyecto');
+          }
+        }}
+      />
+
+      {/* Delete confirmation modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setDeleteModalOpen(false)} />
+          <div className="relative w-full max-w-lg z-10">
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle>Confirmar eliminación</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  Estás a punto de eliminar el proyecto <strong>{project?.name}</strong>. Esta acción eliminará todas las tareas asociadas y los tags del proyecto y no se puede deshacer. ¿Deseas continuar?
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>Cancelar</Button>
+                  <Button
+                    variant="destructive"
+                    onClick={async () => {
+                      if (!project?.id) return;
+                      setDeleteModalOpen(false);
+                      try {
+                        await toast.promise((async () => {
+                          // obtener tareas del proyecto y eliminarlas
+                          const projTasks = await tasksService.getByProject(project.id);
+                          for (const t of projTasks) {
+                            try {
+                              await tasksService.delete(t.id!);
+                            } catch (e) {
+                              // continuar con las demás incluso si una falla
+                              console.warn('Failed to delete task', t.id, e);
+                            }
+                          }
+                          // finalmente eliminar el proyecto
+                          await projectsService.delete(project.id);
+                        })(), {
+                          loading: 'Eliminando proyecto y tareas...',
+                          success: 'Proyecto y tareas eliminados',
+                          error: (err) => `Error: ${err?.message || 'No se pudo eliminar el proyecto'}`,
+                        });
+                        navigate('/projects');
+                      } catch (err) {
+                        console.error('Error deleting project', err);
+                        toast.error('No se pudo eliminar el proyecto');
+                      }
+                    }}
+                  >Eliminar</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Task delete confirmation modal */}
+      {taskDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40" onClick={() => { setTaskDeleteModalOpen(false); setTaskToDelete(null); }} />
+          <div className="relative w-full max-w-md z-10">
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle>Eliminar tarea</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  Estás a punto de eliminar la tarea <strong>{taskToDelete?.title}</strong>. Esta acción no se puede deshacer. ¿Deseas continuar?
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => { setTaskDeleteModalOpen(false); setTaskToDelete(null); }}>Cancelar</Button>
+                  <Button variant="destructive" onClick={confirmDeleteTask}>Eliminar</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* Formulario de nueva tarea */}
       {showNewTaskForm && (
