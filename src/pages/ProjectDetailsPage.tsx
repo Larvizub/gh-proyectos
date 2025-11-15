@@ -211,14 +211,14 @@ export default function ProjectDetailsPage() {
           </h1>
           <p className="text-muted-foreground mt-2 text-sm sm:text-base">{project.description}</p>
           {/* Mobile actions: ensure back/edit/delete are visible on small screens */}
-          <div className="flex items-center gap-2 mt-3 sm:hidden z-20">
-            <button type="button" onClick={() => navigate('/projects')} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground">
+          <div className="flex items-center gap-2 mt-3 sm:hidden z-30">
+            <button type="button" onClick={() => navigate('/projects')} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground border border-border">
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <button type="button" onClick={() => setModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground">
+            <button type="button" onClick={() => setModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground border border-border">
               <Edit3 className="h-4 w-4" />
             </button>
-              <button type="button" onClick={() => setDeleteModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/20 text-red-600 z-20">
+              <button type="button" onClick={() => setDeleteModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/20 text-red-600 z-30 border border-red-200">
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
@@ -255,7 +255,7 @@ export default function ProjectDetailsPage() {
                 )}
               </div>
 
-              <div className="flex-1 min-w-0 flex items-center justify-center">
+              <div className="hidden sm:flex flex-1 min-w-0 items-center justify-center">
                 <div className="inline-flex h-10 items-center rounded-lg border border-border bg-background p-0.5 shadow-sm min-w-0 max-w-2xl w-full">
                   <div className="flex items-center gap-1 w-full justify-center">
                     <button
@@ -314,7 +314,7 @@ export default function ProjectDetailsPage() {
               </div>
 
               {/* Mobile-only view selector: visible only on xs screens below sm. */}
-              <div className="flex gap-2 sm:hidden mt-2 w-full justify-center">
+              <div className="flex gap-2 sm:hidden mt-2 w-full justify-center z-20">
                 <div className="inline-flex items-center rounded-lg border border-border bg-background p-0.5 shadow-sm h-9">
                   <button onClick={() => setViewType('list')} className={`p-2 rounded-md ${viewType === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Lista"><LayoutList className="h-4 w-4"/></button>
                   <button onClick={() => setViewType('kanban')} className={`p-2 rounded-md ${viewType === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Kanban"><LayoutGrid className="h-4 w-4"/></button>
