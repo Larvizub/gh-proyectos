@@ -211,14 +211,14 @@ export default function ProjectDetailsPage() {
           </h1>
           <p className="text-muted-foreground mt-2 text-sm sm:text-base">{project.description}</p>
           {/* Mobile actions: ensure back/edit/delete are visible on small screens */}
-          <div className="flex items-center gap-2 mt-3 sm:hidden">
+          <div className="flex items-center gap-2 mt-3 sm:hidden z-20">
             <button type="button" onClick={() => navigate('/projects')} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground">
               <ArrowLeft className="h-4 w-4" />
             </button>
             <button type="button" onClick={() => setModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground">
               <Edit3 className="h-4 w-4" />
             </button>
-            <button type="button" onClick={() => setDeleteModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-red-600">
+              <button type="button" onClick={() => setDeleteModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/20 text-red-600 z-20">
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
@@ -310,6 +310,16 @@ export default function ProjectDetailsPage() {
                       <Calendar className="h-4 w-4" />
                     </button>
                   </div>
+                </div>
+              </div>
+
+              {/* Mobile-only view selector: visible only on xs screens below sm. */}
+              <div className="flex gap-2 sm:hidden mt-2 w-full justify-center">
+                <div className="inline-flex items-center rounded-lg border border-border bg-background p-0.5 shadow-sm h-9">
+                  <button onClick={() => setViewType('list')} className={`p-2 rounded-md ${viewType === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Lista"><LayoutList className="h-4 w-4"/></button>
+                  <button onClick={() => setViewType('kanban')} className={`p-2 rounded-md ${viewType === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Kanban"><LayoutGrid className="h-4 w-4"/></button>
+                  <button onClick={() => setViewType('gantt')} className={`p-2 rounded-md ${viewType === 'gantt' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Gantt"><Activity className="h-4 w-4"/></button>
+                  <button onClick={() => setViewType('calendar')} className={`p-2 rounded-md ${viewType === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Calendario"><Calendar className="h-4 w-4"/></button>
                 </div>
               </div>
             </div>
