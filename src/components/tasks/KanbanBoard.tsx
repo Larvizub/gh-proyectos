@@ -1,4 +1,4 @@
-import React, { useState, memo, useCallback, useMemo } from 'react';
+import { useState, memo, useCallback, cloneElement } from 'react';
 import { Task, TaskStatus } from '@/types';
 import { TaskCard } from './TaskCard';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,9 +110,9 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDele
 
               {columnTasks.length === 0 && (
                 <div className="text-center text-sm text-muted-foreground py-12 px-4">
-                  <div className="mb-2 opacity-30">
+                    <div className="mb-2 opacity-30">
                     {/* ícono grande */}
-                    {React.cloneElement(column.icon as any, { className: 'h-12 w-12 mx-auto' })}
+                    {cloneElement(column.icon as any, { className: 'h-12 w-12 mx-auto' })}
                   </div>
                   <p className="font-medium">No hay tareas</p>
                   <p className="text-xs mt-1">Arrastra tareas aquí</p>

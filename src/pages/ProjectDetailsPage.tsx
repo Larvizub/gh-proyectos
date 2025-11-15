@@ -32,6 +32,7 @@ export default function ProjectDetailsPage() {
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   // Task form
   const [title, setTitle] = useState('');
@@ -206,10 +207,32 @@ export default function ProjectDetailsPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Proyectos
           </Button>
-          <Button variant="outline" onClick={() => setModalOpen(true)}>
-            <Edit3 className="h-4 w-4 mr-2" />
-            Editar
-          </Button>
+          <button
+            type="button"
+            aria-label="Editar proyecto"
+            title="Editar proyecto"
+            onClick={() => setModalOpen(true)}
+            className="ml-2 relative group inline-flex items-center justify-center rounded-md p-2 text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <Edit3 className="h-4 w-4" />
+            <span className="sr-only">Editar proyecto</span>
+            <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-background/90 text-sm px-2 py-1 text-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 shadow-sm">
+              Editar proyecto
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-label="Eliminar proyecto"
+            title="Eliminar proyecto"
+            onClick={() => setDeleteModalOpen(true)}
+            className="ml-2 relative group inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-600/10 focus:outline-none focus:ring-2 focus:ring-red-400"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="sr-only">Eliminar proyecto</span>
+            <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-background/90 text-sm px-2 py-1 text-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 shadow-sm">
+              Eliminar proyecto
+            </span>
+          </button>
           
           {/* Project edit modal */}
           {/* Tag filter */}
@@ -243,6 +266,59 @@ export default function ProjectDetailsPage() {
               }
             }}
           />
+          {/* Delete confirmation modal */}
+          {deleteModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="fixed inset-0 bg-black/40" onClick={() => setDeleteModalOpen(false)} />
+              <div className="relative w-full max-w-lg z-10">
+                <Card className="shadow-lg">
+                  <CardHeader>
+                    <CardTitle>Confirmar eliminación</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="text-sm text-muted-foreground">
+                      Estás a punto de eliminar el proyecto <strong>{project?.name}</strong>. Esta acción eliminará todas las tareas asociadas y los tags del proyecto y no se puede deshacer. ¿Deseas continuar?
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>Cancelar</Button>
+                      <Button
+                        variant="destructive"
+                        onClick={async () => {
+                          if (!project?.id) return;
+                          setDeleteModalOpen(false);
+                          try {
+                            await toast.promise((async () => {
+                              // obtener tareas del proyecto y eliminarlas
+                              const projTasks = await tasksService.getByProject(project.id);
+                              for (const t of projTasks) {
+                                try {
+                                  await tasksService.delete(t.id!);
+                                } catch (e) {
+                                  // continuar con las demás incluso si una falla
+                                  console.warn('Failed to delete task', t.id, e);
+                                }
+                              }
+                              // finalmente eliminar el proyecto
+                              await projectsService.delete(project.id);
+                            })(), {
+                              loading: 'Eliminando proyecto y tareas...',
+                              success: 'Proyecto y tareas eliminados',
+                              error: (err) => `Error: ${err?.message || 'No se pudo eliminar el proyecto'}`,
+                            });
+                            navigate('/projects');
+                          } catch (err) {
+                            console.error('Error deleting project', err);
+                            toast.error('No se pudo eliminar el proyecto');
+                          }
+                        }}
+                      >Eliminar</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
           {/* Selector de vista mejorado */}
           <div className="flex rounded-lg border-2 border-border bg-background p-1 shadow-sm">
             <button

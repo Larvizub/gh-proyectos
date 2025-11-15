@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { User } from '@/types';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -36,8 +36,8 @@ export default function UserCard({ user, onUpdate }: Props) {
 
       <div className="flex items-center gap-3">
         {editing ? (
-          <div className="w-48">
-            <Select value={role} onChange={(v) => setRole(v)}>
+            <div className="w-48">
+            <Select value={role} onChange={(v) => setRole(v as 'admin' | 'user')}>
               <option value="user">Usuario</option>
               <option value="admin">Administrador</option>
             </Select>
@@ -48,7 +48,7 @@ export default function UserCard({ user, onUpdate }: Props) {
 
         {editing ? (
           <>
-            <Button variant="primary" onClick={save}>Guardar</Button>
+            <Button variant="default" onClick={save}>Guardar</Button>
             <Button onClick={() => { setRole(user.role); setEditing(false); }}>Cancelar</Button>
           </>
         ) : (

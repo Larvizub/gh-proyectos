@@ -5,7 +5,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { User as UserType } from '@/types';
 import { Input } from '@/components/ui/input';
-import Avatar, { AvatarFallback } from '@/components/ui/avatar';
 
 export default function UserProfilePage() {
   const { user: authUser } = useAuth();
