@@ -244,7 +244,7 @@ export default function ProjectDetailsPage() {
 
             {/* Middle: tags + view selector (flexible) */}
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-full sm:w-52 min-w-0">
+              <div className="w-full sm:w-56 min-w-0 relative z-10 mr-2 sm:mr-0">
                 {project.tags && project.tags.length > 0 && (
                   <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full h-10">
                     <option value="">Todos los tags</option>
@@ -255,7 +255,7 @@ export default function ProjectDetailsPage() {
                 )}
               </div>
 
-              <div className="hidden sm:flex flex-1 min-w-0 items-center justify-center">
+              <div className="hidden sm:flex flex-1 min-w-0 items-center justify-center overflow-visible">
                 <div className="inline-flex h-10 items-center rounded-lg border border-border bg-background p-0.5 shadow-sm min-w-0 max-w-2xl w-full">
                   <div className="flex items-center gap-1 w-full justify-center">
                     <button
@@ -314,12 +314,12 @@ export default function ProjectDetailsPage() {
               </div>
 
               {/* Mobile-only view selector: visible only on xs screens below sm. */}
-              <div className="flex gap-2 sm:hidden mt-2 w-full justify-center z-20">
-                <div className="inline-flex items-center rounded-lg border border-border bg-background p-0.5 shadow-sm h-9">
-                  <button onClick={() => setViewType('list')} className={`p-2 rounded-md ${viewType === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Lista"><LayoutList className="h-4 w-4"/></button>
-                  <button onClick={() => setViewType('kanban')} className={`p-2 rounded-md ${viewType === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Kanban"><LayoutGrid className="h-4 w-4"/></button>
-                  <button onClick={() => setViewType('gantt')} className={`p-2 rounded-md ${viewType === 'gantt' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Gantt"><Activity className="h-4 w-4"/></button>
-                  <button onClick={() => setViewType('calendar')} className={`p-2 rounded-md ${viewType === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Calendario"><Calendar className="h-4 w-4"/></button>
+              <div className="flex gap-2 sm:hidden mt-2 w-full justify-center z-30">
+                <div className="inline-flex items-center rounded-lg border border-border bg-background p-0.5 shadow-sm h-10">
+                  <button onClick={() => setViewType('list')} className={`px-3 h-9 rounded-md ${viewType === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Lista"><LayoutList className="h-4 w-4"/></button>
+                  <button onClick={() => setViewType('kanban')} className={`px-3 h-9 rounded-md ${viewType === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Kanban"><LayoutGrid className="h-4 w-4"/></button>
+                  <button onClick={() => setViewType('gantt')} className={`px-3 h-9 rounded-md ${viewType === 'gantt' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Gantt"><Activity className="h-4 w-4"/></button>
+                  <button onClick={() => setViewType('calendar')} className={`px-3 h-9 rounded-md ${viewType === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} title="Calendario"><Calendar className="h-4 w-4"/></button>
                 </div>
               </div>
             </div>
