@@ -104,22 +104,26 @@ export default function UsersPage() {
           <CardContent className="p-0 overflow-x-auto">
             <table className="w-full table-auto">
             <thead>
-              <tr className="text-left">
-                <th className="px-4 py-2">Nombre</th>
-                <th className="px-4 py-2">Email</th>
-                <th className="px-4 py-2">Rol</th>
-                <th className="px-4 py-2">Acciones</th>
+              <tr className="text-left border-b">
+                <th className="px-6 py-3 font-semibold">Nombre</th>
+                <th className="px-6 py-3 font-semibold">Email</th>
+                <th className="px-6 py-3 font-semibold">Rol</th>
+                <th className="px-6 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-t">
-                  <td className="px-4 py-3">{u.displayName}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{u.email}</td>
-                  <td className="px-4 py-3">
+                <tr key={u.id} className="border-t hover:bg-muted/50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="font-medium">{u.displayName}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-muted-foreground">{u.email}</div>
+                  </td>
+                  <td className="px-6 py-4">
                     {editingId === u.id ? (
                       <div className="flex items-center gap-2">
-                        <div className="w-72">
+                        <div className="w-48">
                           <Select value={editRole} onChange={(v) => setEditRole(v)} className="w-full">
                             <option value="">-- Seleccionar rol --</option>
                             {roles.map((r) => (
@@ -130,23 +134,43 @@ export default function UsersPage() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span className="text-sm">{u.role || '—'}</span>
+                        <span className="text-sm font-medium px-2 py-1 bg-muted rounded-md">{u.role || '—'}</span>
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-4">
                     <div className="flex gap-2 items-center">
                       {editingId === u.id ? (
                         <>
-                          <button className="px-2 py-1 bg-muted rounded text-sm" onClick={() => saveEdit(u.id)} disabled={updatingId === u.id}>Guardar</button>
-                          <button className="px-2 py-1 border rounded text-sm" onClick={cancelEdit} disabled={updatingId === u.id}>Cancelar</button>
+                          <button 
+                            className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50" 
+                            onClick={() => saveEdit(u.id)} 
+                            disabled={updatingId === u.id}
+                          >
+                            {updatingId === u.id ? 'Guardando...' : 'Guardar'}
+                          </button>
+                          <button 
+                            className="px-3 py-1.5 border border-border rounded-md text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50" 
+                            onClick={cancelEdit} 
+                            disabled={updatingId === u.id}
+                          >
+                            Cancelar
+                          </button>
                         </>
                       ) : (
                         <>
-                          <button title="Editar" className="p-1 rounded hover:bg-muted" onClick={() => startEdit(u)}>
+                          <button 
+                            title="Editar" 
+                            className="p-2 rounded-md hover:bg-muted transition-colors" 
+                            onClick={() => startEdit(u)}
+                          >
                             <IconEdit />
                           </button>
-                          <button title="Eliminar" className="p-1 rounded hover:bg-red-50 text-red-600" onClick={() => onDelete(u.id)}>
+                          <button 
+                            title="Eliminar" 
+                            className="p-2 rounded-md hover:bg-red-50 text-red-600 transition-colors" 
+                            onClick={() => onDelete(u.id)}
+                          >
                             <IconDelete />
                           </button>
                         </>
@@ -163,31 +187,72 @@ export default function UsersPage() {
         {/* Mobile list */}
         <div className="block sm:hidden space-y-3">
           {users.map((u) => (
-            <Card key={u.id}>
-              <CardContent>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-medium">{u.displayName}</div>
-                    <div className="text-sm text-muted-foreground">{u.email}</div>
-                    <div className="text-sm mt-2">Rol: <strong>{u.role || '—'}</strong></div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <div className="flex gap-2">
-                      <button title="Editar" className="p-1 rounded hover:bg-muted" onClick={() => startEdit(u)}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" fill="currentColor" />
-                          <path d="M20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" fill="currentColor" />
-                        </svg>
+            <Card key={u.id} className="shadow-sm hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                {editingId === u.id ? (
+                  // Modo edición
+                  <div className="space-y-4">
+                    <div>
+                      <div className="font-semibold text-base">{u.displayName}</div>
+                      <div className="text-sm text-muted-foreground">{u.email}</div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Rol</label>
+                      <Select value={editRole} onChange={(v) => setEditRole(v)} className="w-full">
+                        <option value="">-- Seleccionar rol --</option>
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.name}>{r.name}</option>
+                        ))}
+                      </Select>
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <button 
+                        className="flex-1 px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50" 
+                        onClick={() => saveEdit(u.id)} 
+                        disabled={updatingId === u.id}
+                      >
+                        {updatingId === u.id ? 'Guardando...' : 'Guardar'}
                       </button>
-                      <button title="Eliminar" className="p-1 rounded hover:bg-red-50 text-red-600" onClick={() => onDelete(u.id)}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12z" fill="currentColor" />
-                          <path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor" />
-                        </svg>
+                      <button 
+                        className="flex-1 px-3 py-2 border border-border rounded-md text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50" 
+                        onClick={cancelEdit} 
+                        disabled={updatingId === u.id}
+                      >
+                        Cancelar
                       </button>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  // Modo vista
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-base truncate">{u.displayName}</div>
+                      <div className="text-sm text-muted-foreground truncate">{u.email}</div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs text-muted-foreground">Rol:</span>
+                        <span className="text-sm font-medium px-2 py-0.5 bg-muted rounded-md">{u.role || '—'}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button 
+                        title="Editar" 
+                        className="p-2 rounded-md hover:bg-muted transition-colors" 
+                        onClick={() => startEdit(u)}
+                      >
+                        <IconEdit />
+                      </button>
+                      <button 
+                        title="Eliminar" 
+                        className="p-2 rounded-md hover:bg-red-50 text-red-600 transition-colors" 
+                        onClick={() => onDelete(u.id)}
+                      >
+                        <IconDelete />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
