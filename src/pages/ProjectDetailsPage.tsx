@@ -212,13 +212,13 @@ export default function ProjectDetailsPage() {
           <p className="text-muted-foreground mt-2 text-sm sm:text-base">{project.description}</p>
           {/* Mobile actions: ensure back/edit/delete are visible on small screens */}
           <div className="flex items-center gap-2 mt-3 sm:hidden z-30">
-            <button type="button" onClick={() => navigate('/projects')} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground border border-border">
+            <button type="button" onClick={() => navigate('/projects')} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground border border-border shadow-sm">
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <button type="button" onClick={() => setModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground border border-border">
+            <button type="button" onClick={() => setModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground border border-border shadow-sm">
               <Edit3 className="h-4 w-4" />
             </button>
-              <button type="button" onClick={() => setDeleteModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/20 text-red-600 z-30 border border-red-200">
+              <button type="button" onClick={() => setDeleteModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/20 text-red-600 z-30 border border-red-200 shadow-sm">
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
@@ -257,10 +257,10 @@ export default function ProjectDetailsPage() {
 
               <div className="hidden sm:flex flex-1 min-w-0 items-center justify-center overflow-visible">
                 <div className="inline-flex h-10 items-center rounded-lg border border-border bg-background p-0.5 shadow-sm min-w-0 max-w-2xl w-full">
-                  <div className="flex items-center gap-1 w-full justify-center">
+                  <div className="flex items-center gap-1 w-full justify-center h-10">
                     <button
                       onClick={() => setViewType('list')}
-                      className={`flex items-center gap-2 px-3 h-full rounded-md text-sm transition-all ${
+                      className={`flex items-center gap-2 px-3 h-8 rounded-md text-sm transition-all ${
                         viewType === 'list'
                           ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'hover:bg-muted text-muted-foreground'
@@ -272,7 +272,7 @@ export default function ProjectDetailsPage() {
                     </button>
                     <button
                       onClick={() => setViewType('kanban')}
-                      className={`flex items-center gap-2 px-3 h-full rounded-md text-sm transition-all ${
+                      className={`flex items-center gap-2 px-3 h-8 rounded-md text-sm transition-all ${
                         viewType === 'kanban'
                           ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'hover:bg-muted text-muted-foreground'
@@ -300,7 +300,7 @@ export default function ProjectDetailsPage() {
                     </button>
                     <button
                       onClick={() => setViewType('calendar')}
-                      className={`flex items-center gap-2 px-3 h-full rounded-md text-sm transition-all ${
+                      className={`flex items-center gap-2 px-3 h-8 rounded-md text-sm transition-all ${
                         viewType === 'calendar'
                           ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'hover:bg-muted text-muted-foreground'
