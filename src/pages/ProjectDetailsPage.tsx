@@ -33,6 +33,8 @@ export default function ProjectDetailsPage() {
   const [isCompact, setIsCompact] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [taskDeleteModalOpen, setTaskDeleteModalOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
   // Task form
   const [title, setTitle] = useState('');
@@ -173,11 +175,20 @@ export default function ProjectDetailsPage() {
     );
   }
 
-  async function handleDeleteTask(taskId: string) {
-    if (!confirm('¿Estás seguro de eliminar esta tarea? Esta acción no se puede deshacer.')) return;
+  function handleDeleteTask(taskId: string) {
+    const t = (tasks || []).find((x) => x.id === taskId) || null;
+    setTaskToDelete(t);
+    setTaskDeleteModalOpen(true);
+  }
+
+  async function confirmDeleteTask() {
+    if (!taskToDelete || !taskToDelete.id) return;
+    const id = taskToDelete.id;
+    setTaskDeleteModalOpen(false);
+    setTaskToDelete(null);
 
     await toast.promise(
-      tasksService.delete(taskId),
+      tasksService.delete(id),
       {
         loading: 'Eliminando tarea...',
         success: 'Tarea eliminada',
@@ -313,6 +324,28 @@ export default function ProjectDetailsPage() {
                           }
                         }}
                       >Eliminar</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+          {/* Task delete confirmation modal */}
+          {taskDeleteModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="fixed inset-0 bg-black/40" onClick={() => { setTaskDeleteModalOpen(false); setTaskToDelete(null); }} />
+              <div className="relative w-full max-w-md z-10">
+                <Card className="shadow-lg">
+                  <CardHeader>
+                    <CardTitle>Eliminar tarea</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="text-sm text-muted-foreground">
+                      Estás a punto de eliminar la tarea <strong>{taskToDelete?.title}</strong>. Esta acción no se puede deshacer. ¿Deseas continuar?
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => { setTaskDeleteModalOpen(false); setTaskToDelete(null); }}>Cancelar</Button>
+                      <Button variant="destructive" onClick={confirmDeleteTask}>Eliminar</Button>
                     </div>
                   </CardContent>
                 </Card>

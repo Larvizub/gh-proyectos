@@ -1,8 +1,7 @@
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 import { Task } from '@/types';
 import { format, differenceInCalendarDays, addDays, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-// Card component not required here; keep layout simple
 import { Trash2 } from 'lucide-react';
 
 interface GanttChartProps {
@@ -11,10 +10,12 @@ interface GanttChartProps {
   onTaskDelete?: (taskId: string) => void;
 }
 
-// small helpers
-
+// Responsive Gantt that buckets timeline into days/weeks/months/quarters
 export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttChartProps) {
   const [isCompact, setIsCompact] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+
   const { days, startDate } = useMemo(() => {
     if (!tasks || tasks.length === 0) {
       const today = startOfDay(new Date());
@@ -27,54 +28,82 @@ export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttCh
     const min = startOfDay(new Date(Math.min(...starts)));
     const max = startOfDay(new Date(Math.max(...ends)));
 
-  const totalDays = differenceInCalendarDays(max, min) + 1;
-  const daysArr = Array.from({ length: totalDays }).map((_, i) => addDays(min, i));
+    const totalDays = differenceInCalendarDays(max, min) + 1;
+    const daysArr = Array.from({ length: totalDays }).map((_, i) => addDays(min, i));
 
     return { startDate: min, endDate: max, days: daysArr };
   }, [tasks]);
 
   const totalDays = days.length;
 
-  // Si la línea temporal es muy larga, agrupar por semanas para evitar demasiadas columnas
-  const useWeekBuckets = totalDays > 42; // más de ~6 semanas -> agrupar
-  const unitDays = useWeekBuckets ? 7 : 1;
+  const bucketOptions = [1, 7, 30, 90];
+  const [bucketDays, setBucketDays] = useState<number>(1);
 
-  // Calcular unidades (días o semanas)
-  const units = useMemo(() => {
-    if (!useWeekBuckets) return days;
-    const weeks: Date[] = [];
-    // startDate es el primer día mostrado; agrupar por bloques de 7 días
-    for (let i = 0; i < Math.ceil(totalDays / 7); i++) {
-      weeks.push(addDays(startDate, i * 7));
-    }
-    return weeks;
-  }, [useWeekBuckets, days, totalDays, startDate]);
+  const computeUnits = (bDays: number) => {
+    if (bDays === 1) return days;
+    const count = Math.ceil(totalDays / bDays);
+    const units: Date[] = [];
+    for (let i = 0; i < count; i++) units.push(addDays(startDate, i * bDays));
+    return units;
+  };
 
-  const unitCount = units.length;
+  const units = useMemo(() => computeUnits(bucketDays), [bucketDays, days, totalDays, startDate]);
+  const unitCount = Math.max(1, units.length);
 
   useEffect(() => {
-    function update() {
+    function updateCompact() {
       setIsCompact(window.innerWidth < 768);
     }
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
+    updateCompact();
+    window.addEventListener('resize', updateCompact);
+    return () => window.removeEventListener('resize', updateCompact);
   }, []);
 
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) setContainerWidth(Math.max(0, entry.contentRect.width));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!containerWidth) return;
+    const minColPx = isCompact ? 48 : 64;
+    const maxCols = Math.max(3, Math.floor(containerWidth / minColPx));
+
+    let chosen = bucketOptions[bucketOptions.length - 1];
+    for (const b of bucketOptions) {
+      const cols = Math.ceil(Math.max(1, totalDays) / b);
+      if (cols <= maxCols) {
+        chosen = b;
+        break;
+      }
+    }
+    setBucketDays(chosen);
+  }, [containerWidth, totalDays, isCompact]);
+
   return (
-    <div className="w-full overflow-auto border rounded-lg">
-      <div className={isCompact ? 'min-w-0' : 'min-w-[800px]'}>
+    <div className="w-full overflow-auto border rounded-lg" ref={containerRef}>
+      <div className="min-w-0">
         {/* Header */}
         {!isCompact && (
           <div className="flex items-center bg-background border-b sticky top-0 z-10">
             <div className="w-64 p-3 font-semibold">Tarea</div>
-            <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${unitCount}, 1fr)` }}>
+            <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${unitCount}, minmax(0,1fr))` }}>
               {units.map((u, idx) => (
                 <div key={u.toISOString()} className="text-xs text-muted-foreground p-2 border-l last:border-r">
-                  {useWeekBuckets ? (
+                  {bucketDays >= 30 ? (
                     <>
-                      <div className="whitespace-nowrap">{format(u, "dd MMM", { locale: es })} - {format(addDays(u, 6), 'dd MMM', { locale: es })}</div>
-                      <div className="text-[10px] text-muted-foreground/60">Semana {idx + 1}</div>
+                      <div className="whitespace-nowrap font-medium">{format(u, 'MMM yyyy', { locale: es })}</div>
+                      <div className="text-[10px] text-muted-foreground/60">{idx + 1}</div>
+                    </>
+                  ) : bucketDays > 1 ? (
+                    <>
+                      <div className="whitespace-nowrap">{format(u, 'dd MMM', { locale: es })} - {format(addDays(u, bucketDays - 1), 'dd MMM', { locale: es })}</div>
+                      <div className="text-[10px] text-muted-foreground/60">{bucketDays === 7 ? `Semana ${idx + 1}` : `Período ${idx + 1}`}</div>
                     </>
                   ) : (
                     <>
@@ -100,8 +129,11 @@ export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttCh
             const left = Math.max(0, offset);
             const width = Math.min(totalDays - left, span);
 
-            const leftPct = (left / totalDays) * 100;
-            const widthPct = (width / totalDays) * 100;
+            const leftUnits = Math.floor(left / bucketDays);
+            const widthUnits = Math.max(1, Math.ceil(width / bucketDays));
+
+            const leftPct = (leftUnits / unitCount) * 100;
+            const widthPct = (widthUnits / unitCount) * 100;
 
             return isCompact ? (
               <div key={task.id} className="p-3 border-b bg-background/50">
@@ -114,7 +146,6 @@ export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttCh
                     <button onClick={(e) => { e.stopPropagation(); onTaskDelete && onTaskDelete(task.id); }} className="p-1 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </div>
-                {/* Compact bar: ensure minimum visible width and avoid horizontal overflow */}
                 <div className="w-full h-4 bg-muted rounded overflow-hidden">
                   <div
                     className="h-full rounded"
@@ -148,25 +179,24 @@ export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttCh
                   </div>
                 </div>
 
-                  <div className="flex-1 relative h-14">
-                        <div className="absolute inset-0 flex">
-                          <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${unitCount}, 1fr)` }}>
-                            {units.map((_, idx) => (
-                              <div key={idx} className={`border-l ${idx === unitCount - 1 ? 'last:border-r' : ''}`} />
-                            ))}
-                          </div>
-                        </div>
+                <div className="flex-1 relative h-14">
+                  <div className="absolute inset-0 flex">
+                    <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${unitCount}, minmax(0,1fr))` }}>
+                      {units.map((_, idx) => (
+                        <div key={idx} className={`border-l ${idx === unitCount - 1 ? 'last:border-r' : ''}`} />
+                      ))}
+                    </div>
+                  </div>
 
-                  {/* Task bar */}
                   <div
                     onClick={() => onTaskClick && onTaskClick(task)}
-                      className="absolute top-3 left-0 h-8 rounded-md shadow-md cursor-pointer"
+                    className="absolute top-3 left-0 h-8 rounded-md shadow-md cursor-pointer"
                     style={{
-                      left: `${(left / unitDays) / unitCount * 100}%`,
-                      width: `${(Math.max(1, Math.ceil(width / unitDays)) / unitCount) * 100}%`,
+                      left: `${leftPct}%`,
+                      width: `${widthPct}%`,
                       background: 'linear-gradient(90deg, rgba(99,102,241,0.95), rgba(79,70,229,0.9))',
                     }}
-                      title={`${task.title} — ${taskStart.toLocaleDateString()} → ${taskEnd.toLocaleDateString()}`}
+                    title={`${task.title} — ${taskStart.toLocaleDateString()} → ${taskEnd.toLocaleDateString()}`}
                   >
                     <div className="h-full flex items-center justify-between px-3 text-sm text-white">
                       <div className="truncate font-medium">{task.title}</div>
