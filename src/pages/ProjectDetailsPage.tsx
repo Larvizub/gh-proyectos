@@ -210,52 +210,119 @@ export default function ProjectDetailsPage() {
             {project.name}
           </h1>
           <p className="text-muted-foreground mt-2 text-sm sm:text-base">{project.description}</p>
+          {/* Mobile actions: ensure back/edit/delete are visible on small screens */}
+          <div className="flex items-center gap-2 mt-3 sm:hidden">
+            <button type="button" onClick={() => navigate('/projects')} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => setModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-foreground">
+              <Edit3 className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => setDeleteModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/10 text-red-600">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
         </div>
         
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/projects')} className="h-9 mr-2">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Proyectos
-          </Button>
-          <button
-            type="button"
-            aria-label="Editar proyecto"
-            title="Editar proyecto"
-            onClick={() => setModalOpen(true)}
-            className="ml-2 relative group inline-flex items-center justify-center rounded-md p-2 text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <Edit3 className="h-4 w-4" />
-            <span className="sr-only">Editar proyecto</span>
-            <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-background/90 text-sm px-2 py-1 text-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 shadow-sm">
-              Editar proyecto
-            </span>
-          </button>
-          <button
-            type="button"
-            aria-label="Eliminar proyecto"
-            title="Eliminar proyecto"
-            onClick={() => setDeleteModalOpen(true)}
-            className="ml-2 relative group inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-600/10 focus:outline-none focus:ring-2 focus:ring-red-400"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="sr-only">Eliminar proyecto</span>
-            <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-background/90 text-sm px-2 py-1 text-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 shadow-sm">
-              Eliminar proyecto
-            </span>
-          </button>
-          
-          {/* Project edit modal */}
-          {/* Tag filter */}
-          {project.tags && project.tags.length > 0 && (
-            <div className="ml-4 w-full sm:w-auto">
-              <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full sm:w-48">
-                <option value="">Todos los tags</option>
-                {project.tags.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </Select>
+        <div className="w-full">
+          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 w-full">
+            {/* Left: back / edit / delete */}
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => navigate('/projects')} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/5 text-foreground">
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Proyectos</span>
+              </button>
+              <button type="button" onClick={() => setModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/5 text-foreground">
+                <Edit3 className="h-4 w-4" />
+                <span className="sr-only">Editar</span>
+              </button>
+              <button type="button" onClick={() => setDeleteModalOpen(true)} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/5 text-red-600">
+                <Trash2 className="h-4 w-4" />
+                <span className="sr-only">Eliminar</span>
+              </button>
             </div>
-          )}
+
+            {/* Middle: tags + view selector (flexible) */}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-full sm:w-52 min-w-0">
+                {project.tags && project.tags.length > 0 && (
+                  <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full h-10">
+                    <option value="">Todos los tags</option>
+                    {project.tags.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </Select>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0 flex items-center justify-center">
+                <div className="inline-flex h-10 items-center rounded-lg border border-border bg-background p-0.5 shadow-sm min-w-0 max-w-2xl w-full">
+                  <div className="flex items-center gap-1 w-full justify-center">
+                    <button
+                      onClick={() => setViewType('list')}
+                      className={`flex items-center gap-2 px-3 h-full rounded-md text-sm transition-all ${
+                        viewType === 'list'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'hover:bg-muted text-muted-foreground'
+                      }`}
+                      title="Vista de lista"
+                    >
+                      <LayoutList className="h-4 w-4" />
+                      <span className="text-sm font-medium hidden sm:inline">Lista</span>
+                    </button>
+                    <button
+                      onClick={() => setViewType('kanban')}
+                      className={`flex items-center gap-2 px-3 h-full rounded-md text-sm transition-all ${
+                        viewType === 'kanban'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'hover:bg-muted text-muted-foreground'
+                      }`}
+                      title="Vista Kanban"
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (isCompact) {
+                          toast('Las vistas Gantt y Lista no están disponibles en pantallas pequeñas. Se ha cambiado a Kanban.');
+                          return;
+                        }
+                        setViewType('gantt');
+                      }}
+                      className={`flex items-center gap-2 px-3 h-full rounded-md text-sm transition-all ${
+                        viewType === 'gantt'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'hover:bg-muted text-muted-foreground'
+                      } ${isCompact ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={isCompact ? 'Gantt no disponible en pantallas pequeñas' : 'Vista Gantt'}
+                    >
+                      <Activity className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setViewType('calendar')}
+                      className={`flex items-center gap-2 px-3 h-full rounded-md text-sm transition-all ${
+                        viewType === 'calendar'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'hover:bg-muted text-muted-foreground'
+                      }`}
+                      title="Vista de calendario"
+                    >
+                      <Calendar className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Nueva tarea (fija) */}
+            <div className="flex items-center justify-end gap-2">
+              <Button onClick={() => setShowNewTaskForm(!showNewTaskForm)} className="h-10 shadow-sm flex-shrink-0 px-4">
+                <Plus className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Nueva Tarea</span>
+                <span className="sm:hidden">Nueva</span>
+              </Button>
+            </div>
+          </div>
           <ProjectModal
             open={modalOpen}
             onClose={() => setModalOpen(false)}
