@@ -199,7 +199,7 @@ export default function ProjectDetailsPage() {
   
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div className="w-full sm:w-auto">
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
@@ -569,12 +569,14 @@ export default function ProjectDetailsPage() {
 
       {/* Vista de tareas */}
       {viewType === 'kanban' && (
-        <KanbanBoard 
-          tasks={tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks} 
-          onTaskClick={(task) => setSelectedTask(task)}
-          onTaskStatusChange={handleTaskStatusChange}
-          onTaskDelete={handleDeleteTask}
-        />
+        <div className="w-full max-w-full">
+          <KanbanBoard 
+            tasks={tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks} 
+            onTaskClick={(task) => setSelectedTask(task)}
+            onTaskStatusChange={handleTaskStatusChange}
+            onTaskDelete={handleDeleteTask}
+          />
+        </div>
       )}
 
       {viewType === 'gantt' && (
