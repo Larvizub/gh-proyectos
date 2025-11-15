@@ -225,9 +225,9 @@ export default function ProjectDetailsPage() {
         </div>
         
         <div className="w-full">
-          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] items-center gap-3 w-full">
             {/* Left: back / edit / delete */}
-            <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2">
               <button type="button" onClick={() => navigate('/projects')} className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-muted/5 text-foreground">
                 <ArrowLeft className="h-4 w-4" />
                 <span className="sr-only">Proyectos</span>
@@ -316,7 +316,7 @@ export default function ProjectDetailsPage() {
 
             {/* Right: Nueva tarea (fija) */}
             <div className="flex items-center justify-end gap-2">
-              <Button onClick={() => setShowNewTaskForm(!showNewTaskForm)} className="h-10 shadow-sm flex-shrink-0 px-4">
+              <Button onClick={() => setShowNewTaskForm(!showNewTaskForm)} className="h-10 shadow-sm flex-shrink-0 px-4 w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">Nueva Tarea</span>
                 <span className="sm:hidden">Nueva</span>
@@ -418,72 +418,7 @@ export default function ProjectDetailsPage() {
               </div>
             </div>
           )}
-          {/* Selector de vista mejorado */}
-          <div className="flex rounded-lg border-2 border-border bg-background p-1 shadow-sm">
-            <button
-              onClick={() => setViewType('list')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                viewType === 'list' 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'hover:bg-muted text-muted-foreground'
-              }`}
-              title="Vista de lista"
-            >
-              <LayoutList className="h-4 w-4" />
-              <span className="text-sm font-medium hidden sm:inline">Lista</span>
-            </button>
-            <button
-              onClick={() => setViewType('kanban')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                viewType === 'kanban' 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'hover:bg-muted text-muted-foreground'
-              }`}
-              title="Vista Kanban"
-            >
-              <LayoutGrid className="h-4 w-4" />
-              <span className="text-sm font-medium hidden sm:inline">Kanban</span>
-            </button>
-            <button
-              onClick={() => {
-                if (isCompact) {
-                  toast('Las vistas Gantt y Lista no están disponibles en pantallas pequeñas. Se ha cambiado a Kanban.');
-                  return;
-                }
-                setViewType('gantt');
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                viewType === 'gantt'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'hover:bg-muted text-muted-foreground'
-              } ${isCompact ? 'opacity-50 cursor-not-allowed' : ''}`}
-              title={isCompact ? 'Gantt no disponible en pantallas pequeñas' : 'Vista Gantt'}
-            >
-              <Activity className="h-4 w-4" />
-              <span className="text-sm font-medium hidden sm:inline">Gantt</span>
-            </button>
-            <button
-              onClick={() => setViewType('calendar')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                viewType === 'calendar' 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'hover:bg-muted text-muted-foreground'
-              }`}
-              title="Vista de calendario"
-            >
-              <Calendar className="h-4 w-4" />
-              <span className="text-sm font-medium hidden sm:inline">Calendario</span>
-            </button>
-          </div>
           
-          <Button 
-            onClick={() => setShowNewTaskForm(!showNewTaskForm)}
-            className="h-11 shadow-sm"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Nueva Tarea</span>
-            <span className="sm:hidden">Nueva</span>
-          </Button>
         </div>
       </div>
 
