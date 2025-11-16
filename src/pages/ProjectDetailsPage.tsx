@@ -277,20 +277,29 @@ export default function ProjectDetailsPage() {
             </div>
           </div>
 
-          {/* Fila 2: Filtro de tags (si existe) */}
+          {/* Fila 2: Filtro de tags (si existe) y acción de nueva tarea */}
           {project.tags && project.tags.length > 0 && (
-            <div className="w-full sm:w-auto sm:min-w-[200px]">
-              <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full">
-                <option value="">Todos los tags</option>
-                {project.tags.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </Select>
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="w-full sm:max-w-[240px]">
+                <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full">
+                  <option value="">Todos los tags</option>
+                  {project.tags.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </Select>
+              </div>
+              <Button
+                onClick={() => setShowNewTaskForm(!showNewTaskForm)}
+                className="hidden sm:inline-flex h-11 shadow-sm whitespace-nowrap"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nueva Tarea
+              </Button>
             </div>
           )}
 
-          {/* Fila 3: Selector de vistas y botón nueva tarea */}
-          <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-between sm:justify-end">
+          {/* Fila 3: Selector de vistas y botón nueva tarea para mobile */}
+          <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-between sm:justify-start">
             {/* Selector de vista - compacto en mobile */}
             <div className="flex rounded-lg border-2 border-border bg-background p-0.5 sm:p-1 shadow-sm">
               <button
@@ -355,10 +364,10 @@ export default function ProjectDetailsPage() {
               </button>
             </div>
             
-            {/* Botón nueva tarea */}
+            {/* Botón nueva tarea (solo mobile) */}
             <Button 
               onClick={() => setShowNewTaskForm(!showNewTaskForm)}
-              className="h-9 sm:h-11 shadow-sm whitespace-nowrap"
+              className="h-9 shadow-sm whitespace-nowrap sm:hidden"
             >
               <Plus className="h-4 w-4 mr-2" />
               <span className="hidden xs:inline">Nueva Tarea</span>
