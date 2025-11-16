@@ -55,12 +55,15 @@ function maskEmails(list: string[] | undefined) {
   return `${preview.join(', ')}${list.length > 3 ? ` (+${list.length - 3} más)` : ''}`;
 }
 
-async function sendMailViaGraph(accessToken: string, subject: string, bodyHtml: string, toRecipients: string[]) {
+async function sendMailViaGraph(accessToken: string, subject: string, bodyHtml: string, toRecipients: string[], ccRecipients: string[] = []) {
   const msg = {
     message: {
       subject,
       body: { contentType: 'HTML', content: bodyHtml },
       toRecipients: toRecipients.map((email) => ({ emailAddress: { address: email } })),
+      ccRecipients: ccRecipients
+        .filter((email) => !!email)
+        .map((email) => ({ emailAddress: { address: email } })),
     },
   };
 
@@ -91,6 +94,96 @@ function extractEmails(list: any[]): string[] {
     if (p && p.email) set.add(p.email);
   });
   return Array.from(set);
+}
+
+function escapeHtml(value: any) {
+  const str = value === null || value === undefined ? '' : String(value);
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatDate(timestamp?: number) {
+  if (!timestamp) return 'Sin fecha definida';
+  try {
+    return new Intl.DateTimeFormat('es-CR', { dateStyle: 'long', timeStyle: 'short' }).format(timestamp);
+  } catch (err) {
+    return new Date(timestamp).toLocaleString('es-CR');
+  }
+}
+
+async function resolveUsersByIds(ids: string[], db: admin.database.Database) {
+  const uniqueIds = Array.from(new Set((ids || []).filter(Boolean)));
+  if (!uniqueIds.length) return [];
+  const results = await Promise.all(uniqueIds.map(async (id) => {
+    const snap = await db.ref(`/users/${id}`).once('value');
+    return snap.exists() ? snap.val() : null;
+  }));
+  return results.filter(Boolean) as Array<{ id: string; email?: string; displayName?: string }>;
+}
+
+function buildTaskAssignmentEmail(params: {
+  task: any;
+  project?: any;
+  assigneeNames: string[];
+  ownerLabel?: string;
+  accentColor?: string;
+}) {
+  const { task, project, assigneeNames, ownerLabel, accentColor } = params;
+  const accent = accentColor || '#2563eb';
+  const projectName = escapeHtml(project?.name || task?.projectName || 'Proyecto sin nombre');
+  const ownerText = ownerLabel ? escapeHtml(ownerLabel) : 'Propietario del proyecto';
+  const assigneeList = assigneeNames.length
+    ? `<ul style="list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px;">${assigneeNames
+        .map((name) => `<li style="font-size:13px;padding:6px 10px;border-radius:999px;background:#f1f5f9;color:#0f172a;">${escapeHtml(name)}</li>`)
+        .join('')}</ul>`
+    : '<p style="margin:0;font-size:13px;color:#475467;">Sin asignados definidos</p>';
+
+  return `
+    <div style="margin:0;padding:24px;background:#f8fafc;font-family:'Inter',system-ui,-apple-system,sans-serif;color:#0f172a;">
+      <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:18px;overflow:hidden;">
+        <div style="padding:18px 24px;background:linear-gradient(135deg, ${accent} 0%, #0f172a 100%);color:#fff;">
+          <p style="margin:0;font-size:16px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">Notificación de tarea</p>
+          <p style="margin:6px 0 0;font-size:20px;font-weight:700;">${projectName}</p>
+        </div>
+        <div style="padding:24px;">
+          <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;">${escapeHtml(task?.title || 'Título sin nombre')}</h2>
+          <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#475467;">${escapeHtml(task?.description || 'No se proporcionó descripción.')}</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+            <span style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid rgba(15,23,42,0.2);background:#eef2ff;color:#312e81;">Prioridad: ${escapeHtml(task?.priority || 'medium')}</span>
+            <span style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid rgba(15,23,42,0.2);background:#fef9c3;color:#92400e;">Estado: ${escapeHtml(task?.status || 'todo')}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;">
+            <div>
+              <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Fecha inicio</p>
+              <p style="margin:4px 0 0;font-size:14px;font-weight:600;">${formatDate(task?.startDate)}</p>
+            </div>
+            <div>
+              <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Fecha vencimiento</p>
+              <p style="margin:4px 0 0;font-size:14px;font-weight:600;">${formatDate(task?.dueDate)}</p>
+            </div>
+            <div>
+              <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Dueño del proyecto</p>
+              <p style="margin:4px 0 0;font-size:14px;font-weight:600;">${ownerText}</p>
+            </div>
+          </div>
+          <div style="padding:16px;border-radius:12px;background:#f1f5f9;border:1px solid #e2e8f0;margin-bottom:20px;">
+            <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#94a3b8;">Asignados</p>
+            ${assigneeList}
+          </div>
+          <div style="margin-bottom:12px;">
+            <p style="margin:0;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Descripción del proyecto</p>
+            <p style="margin:4px 0 0;font-size:14px;color:#475467;">${escapeHtml(project?.description || 'Sin descripción para el proyecto.')}</p>
+          </div>
+          <p style="margin:0;font-size:13px;color:#0f172a;">
+            Accede a la plataforma para ver el estado completo de la tarea y continuar con la colaboración.
+          </p>
+        </div>
+      </div>
+    </div>`;
 }
 
 // Trigger: on project created -> send email to participants
@@ -333,23 +426,63 @@ export const onTaskWritten = functions.database.ref('/tasks/{taskId}').onWrite(a
 
   // New task
   if (!before && after) {
-    const assignees = extractEmails(after.assignees || after.assignedTo ? [after.assignedTo] : []);
-    const subject = `Nueva tarea asignada: ${after?.title || 'Sin título'}`;
-    const body = `<p>Se ha creado y asignado una tarea: <strong>${after?.title}</strong></p>
-      <p>Descripción: ${after?.description || '-'}</p>
-      <p>Proyecto: ${after?.projectName || '-'}</p>`;
-    if (assignees.length) {
-      if (!accessToken) {
-        functions.logger.warn('Skipping task assignment emails: Azure token unavailable', { taskId: context.params.taskId, assignees: maskEmails(assignees) });
-      } else {
-        try {
-          await sendMailViaGraph(accessToken, subject, body, assignees);
-          functions.logger.log('Task assignment emails sent', { taskId: context.params.taskId, recipientsCount: assignees.length });
-        } catch (err) {
-          functions.logger.error('Error sending task assignment emails', { err: String((err as any)?.message || err), recipients: maskEmails(assignees) });
-        }
-      }
+    const db = admin.database();
+    const assigneeIds: string[] = [];
+    if (Array.isArray(after.assigneeIds)) assigneeIds.push(...after.assigneeIds.filter(Boolean));
+    if (Array.isArray(after.assignees)) {
+      assigneeIds.push(...after.assignees.map((a: any) => (typeof a === 'string' ? a : a?.id)).filter(Boolean));
     }
+
+    const assigneeProfiles = await resolveUsersByIds(assigneeIds, db);
+    const legacyAssignments: any[] = [];
+    if (after.assignedTo) legacyAssignments.push(after.assignedTo);
+    if (Array.isArray(after.assignees)) legacyAssignments.push(...after.assignees);
+    const assigneeEmailsFromLegacy = extractEmails(legacyAssignments);
+    const assigneeEmailSet = new Set<string>([
+      ...assigneeEmailsFromLegacy,
+      ...assigneeProfiles.map((user) => user?.email).filter(Boolean),
+    ]);
+    const assigneeEmails = Array.from(assigneeEmailSet);
+    if (!assigneeEmails.length) return null;
+
+    const projectSnap = after.projectId ? await db.ref(`/projects/${after.projectId}`).once('value') : null;
+    const project = projectSnap && projectSnap.exists() ? projectSnap.val() : null;
+    const ownerProfiles = project?.ownerId ? await resolveUsersByIds([project.ownerId], db) : [];
+    const ownerProfile = ownerProfiles[0] || null;
+    const ownerEmail = ownerProfile?.email;
+    const ownerLabel = ownerProfile?.displayName || ownerProfile?.email;
+    const ccRecipients = ownerEmail && !assigneeEmails.includes(ownerEmail) ? [ownerEmail] : [];
+
+    const assigneeNames = Array.from(
+      new Set([
+        ...assigneeProfiles.map((user) => user?.displayName || user?.email).filter(Boolean),
+        ...(Array.isArray(after.assignees)
+          ? after.assignees.map((a: any) => (typeof a === 'string' ? a : a?.displayName || a?.email)).filter(Boolean)
+          : []),
+      ]),
+    );
+
+    const subject = `Nueva tarea asignada: ${after?.title || 'Sin título'}`;
+    const body = buildTaskAssignmentEmail({
+      task: after,
+      project,
+      assigneeNames,
+      ownerLabel,
+      accentColor: project?.color,
+    });
+
+    if (!accessToken) {
+      functions.logger.warn('Skipping task assignment emails: Azure token unavailable', { taskId: context.params.taskId, assignees: maskEmails(assigneeEmails) });
+      return null;
+    }
+
+    try {
+      await sendMailViaGraph(accessToken, subject, body, assigneeEmails, ccRecipients);
+      functions.logger.log('Task assignment emails sent', { taskId: context.params.taskId, recipientsCount: assigneeEmails.length, ccCount: ccRecipients.length });
+    } catch (err) {
+      functions.logger.error('Error sending task assignment emails', { err: String((err as any)?.message || err), recipients: maskEmails(assigneeEmails), cc: maskEmails(ccRecipients) });
+    }
+
     return null;
   }
 
