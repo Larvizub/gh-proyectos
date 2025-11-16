@@ -440,7 +440,7 @@ export const onTaskWritten = functions.database.ref('/tasks/{taskId}').onWrite(a
     const assigneeEmailsFromLegacy = extractEmails(legacyAssignments);
     const assigneeEmailSet = new Set<string>([
       ...assigneeEmailsFromLegacy,
-      ...assigneeProfiles.map((user) => user?.email).filter(Boolean),
+      ...assigneeProfiles.map((user) => user?.email).filter((email): email is string => Boolean(email)),
     ]);
     const assigneeEmails = Array.from(assigneeEmailSet);
     if (!assigneeEmails.length) return null;
