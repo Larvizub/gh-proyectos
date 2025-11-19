@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { projectsService } from '@/services/firebase.service';
+import { projectsService, tasksService } from '@/services/firebase.service';
 import ProjectModal from '@/components/projects/ProjectModal';
 import { Project } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,13 +27,50 @@ export function ProjectsPage() {
 
     return unsubscribe;
   }, []);
-  
+  // Obtener tareas del usuario para incluir proyectos donde el usuario tenga tareas asignadas
+  const [assignedProjectIds, setAssignedProjectIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!user) return;
+      try {
+        const tasks = await tasksService.getAll();
+        const ids = new Set<string>();
+        tasks.forEach((t) => {
+          // detectar asignaciones en varios formatos
+          const assigned = t?.assignedTo;
+          if (assigned) {
+            if (typeof assigned === 'string') {
+              if (assigned === user.id || String(assigned).toLowerCase() === String(user.email).toLowerCase()) {
+                if (t.projectId) ids.add(t.projectId);
+              }
+            } else if (typeof assigned === 'object') {
+              if (assigned.userId === user.id || String(assigned.email || '').toLowerCase() === String(user.email).toLowerCase()) {
+                if (t.projectId) ids.add(t.projectId);
+              }
+            }
+          }
+          const assigneeIds = t?.assigneeIds || t?.assignedUserIds || null;
+          if (Array.isArray(assigneeIds) && assigneeIds.includes(user.id)) {
+            if (t.projectId) ids.add(t.projectId);
+          }
+        });
+        if (mounted) setAssignedProjectIds(ids);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('Failed to load tasks to compute assigned projects', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [user]);
+
   // Memorizar el filtrado para evitar recálculos en cada render
   const userProjects = useMemo(() => {
     return projects.filter(
-      p => p.ownerId === user?.id || p.memberIds?.includes(user?.id || '')
+      p => p.ownerId === user?.id || p.memberIds?.includes(user?.id || '') || assignedProjectIds.has(p.id)
     );
-  }, [projects, user?.id]);
+  }, [projects, user?.id, assignedProjectIds]);
 
   if (loading) {
     // No usamos el overlay completo aquí para evitar un parpadeo al navegar entre rutas.

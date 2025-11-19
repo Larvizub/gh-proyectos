@@ -4,6 +4,8 @@ import Select from '@/components/ui/select';
 import ColorPickerButton from '@/components/ui/ColorPickerButton';
 import { CheckCircle, Calendar, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { usersService } from '@/services/firebase.service';
+import { User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Project } from '@/types';
 
@@ -22,6 +24,8 @@ export default function ProjectModal({ open, onClose, onSave, initial }: Props) 
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [saving, setSaving] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [ownerIds, setOwnerIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (initial) {
@@ -30,14 +34,29 @@ export default function ProjectModal({ open, onClose, onSave, initial }: Props) 
       setColor(initial.color || '#000000');
       setStatus((initial.status as any) || 'active');
       setTags(initial.tags || []);
+      setOwnerIds(initial.owners || (initial.ownerId ? [initial.ownerId] : []));
     } else {
       setName('');
       setDescription('');
       setColor('#000000');
       setStatus('active');
       setTags([]);
+      setOwnerIds([]);
     }
   }, [initial, open]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const all = await usersService.getAll();
+        if (mounted) setUsers(all || []);
+      } catch (err) {
+        console.warn('No se pudieron cargar usuarios para seleccionar propietarios', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   
 
@@ -106,16 +125,64 @@ export default function ProjectModal({ open, onClose, onSave, initial }: Props) 
               </div>
             </div>
 
+            <div>
+              <label className="text-sm font-medium">Propietarios (compartir acceso)</label>
+              <div className="mt-2">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {ownerIds.length === 0 ? (
+                    <span className="text-sm text-muted-foreground">Sin propietarios compartidos (será visible solo para el propietario)</span>
+                  ) : (
+                    ownerIds.map(id => {
+                      const u = users.find(x => x.id === id);
+                      return (
+                        <span key={id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/70 text-sm">
+                          <span className="truncate max-w-[12rem]">{u ? (u.displayName || u.email) : id}</span>
+                          <button type="button" onClick={() => setOwnerIds(prev => prev.filter(x => x !== id))} className="h-5 w-5 rounded-full inline-flex items-center justify-center text-sm">×</button>
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="relative">
+                  <button type="button" className="w-full rounded-md border border-input bg-input px-3 py-2 text-left text-sm text-foreground shadow-sm flex items-center justify-between" onClick={() => {
+                    // toggle simple owner picker (show a browser prompt for quick add by email or id)
+                    const emailOrId = prompt('Añadir propietario por correo o id de usuario');
+                    if (!emailOrId) return;
+                    // try to resolve by email
+                    const found = users.find(u => u.email.toLowerCase() === emailOrId.toLowerCase());
+                    if (found) {
+                      setOwnerIds(prev => prev.includes(found.id) ? prev : [...prev, found.id]);
+                    } else {
+                      // fallback to adding raw value (expecting id)
+                      setOwnerIds(prev => prev.includes(emailOrId) ? prev : [...prev, emailOrId]);
+                    }
+                  }}>
+                    <span className="truncate">Añadir propietario…</span>
+                    <svg className="h-4 w-4 text-muted-foreground ml-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                      <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
               <Button onClick={async () => {
-                // include status and tags in payload when saving
+                // include status, tags and owners in payload when saving
                 setSaving(true);
                 try {
+                  const payload: any = { name: name.trim(), description: description.trim(), color, status, tags, owners: ownerIds };
                   if (initial && initial.id) {
-                    await onSave({ id: initial.id, name: name.trim(), description: description.trim(), color, status, tags });
+                    payload.id = initial.id;
+                    // preserve legacy ownerId if present, otherwise set from owners
+                    if (initial.ownerId) payload.ownerId = initial.ownerId;
+                    else if (ownerIds.length > 0) payload.ownerId = ownerIds[0];
+                    await onSave(payload);
                   } else {
-                    await onSave({ name: name.trim(), description: description.trim(), color, status, tags });
+                    if (ownerIds.length > 0) payload.ownerId = ownerIds[0];
+                    await onSave(payload);
                   }
                   onClose();
                 } catch (err) {

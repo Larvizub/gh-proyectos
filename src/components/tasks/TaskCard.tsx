@@ -15,8 +15,10 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useUsers } from '@/contexts/UsersContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { projectsService } from '@/services/firebase.service';
 
 interface TaskCardProps {
   task: Task;
@@ -68,6 +70,10 @@ const priorityConfig: Record<TaskPriority, { label: string; className: string }>
 
 function TaskCardComponent({ task, onClick, onDelete }: TaskCardProps) {
   const { usersMap } = useUsers();
+  const { user } = useAuth();
+  const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
+  const [projectOwners, setProjectOwners] = useState<string[] | null>(null);
+  const [canEdit, setCanEdit] = useState(false);
   
   // defensive defaults in case some fields are missing at runtime
   const statusInfo = statusConfig[task?.status ?? 'todo'];
@@ -77,6 +83,42 @@ function TaskCardComponent({ task, onClick, onDelete }: TaskCardProps) {
   const assigneeIds = task?.assigneeIds ?? [];
   const attachments = task?.attachments ?? [];
   const assignees = assigneeIds.map(id => usersMap[id]).filter(Boolean);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!task?.projectId) return;
+      try {
+        const p = await projectsService.get(task.projectId);
+        if (!mounted) return;
+        setProjectOwnerId(p?.ownerId || null);
+        setProjectOwners(p?.owners || null);
+      } catch (err) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, [task?.projectId]);
+
+  useEffect(() => {
+    // Compute canEdit: true if current user is project owner or in project owners list or assigned to task
+    const uid = user?.id;
+    if (!uid) { setCanEdit(false); return; }
+
+    let assigned = false;
+    if (task) {
+      if (Array.isArray(task.assigneeIds) && uid && task.assigneeIds.includes(uid)) assigned = true;
+      const a = (task as any).assignedTo;
+      if (typeof a === 'string') {
+        if (a === uid || a === user?.email) assigned = true;
+      } else if (a && typeof a === 'object') {
+        if (a.userId === uid || a.email === user?.email) assigned = true;
+      }
+    }
+
+    const ownerMatch = projectOwnerId === uid || (projectOwners && projectOwners.includes(uid));
+    setCanEdit(ownerMatch || assigned);
+  }, [user?.id, user?.email, projectOwnerId, projectOwners, task]);
 
   // normalize and validate dueDate (could be number, string, or invalid)
   const rawDue = task?.dueDate;
@@ -109,23 +151,29 @@ function TaskCardComponent({ task, onClick, onDelete }: TaskCardProps) {
             <Flag className={`h-5 w-5 flex-shrink-0 ${priorityInfo.className} transition-transform group-hover:scale-110`} fill="currentColor" />
 
             {/* Action icons: edit (opens editor via parent click) and delete */}
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onClick && onClick(); }}
-              className="p-1 rounded hover:bg-muted text-muted-foreground"
-              title="Editar"
-            >
-              <Edit3 className="h-4 w-4" />
-            </button>
+            {canEdit ? (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onClick && onClick(); }}
+                  className="p-1 rounded hover:bg-muted text-muted-foreground"
+                  title="Editar"
+                >
+                  <Edit3 className="h-4 w-4" />
+                </button>
 
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onDelete && onDelete(); }}
-              className="p-1 rounded hover:bg-destructive/10 text-destructive"
-              title="Eliminar"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onDelete && onDelete(); }}
+                  className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                  title="Eliminar"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </>
+            ) : (
+              <div className="text-xs text-muted-foreground px-2">Solo propietario/asignado</div>
+            )}
           </div>
         </div>
       </CardHeader>

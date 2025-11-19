@@ -884,7 +884,190 @@ export const validateSiteAccess = functions.https.onCall(async (data, context) =
   const emailDomain = extractRealDomain(loginEmail);
   
   functions.logger.log('🔍 Extracted domain:', { loginEmail, emailDomain, expectedDomain });
-  
+  // Antes de rechazar por dominio, verificar si el email está en la lista de "Externos" del sitio
+  // Determinar la base de datos correspondiente al sitio (declarada fuera de try para reuso)
+  let db: admin.database.Database;
+  switch ((site || '').toUpperCase()) {
+      case 'CCCR':
+        db = admin.app().database('https://gh-proyectos-cccr.firebaseio.com');
+        break;
+      case 'CCCI':
+        db = admin.app().database('https://gh-proyectos-ccci.firebaseio.com');
+        break;
+      case 'CEVP':
+        db = admin.app().database('https://gh-proyectos-cevp.firebaseio.com');
+        break;
+      default:
+        db = admin.database();
+    }
+  try {
+    const loginLower = String(loginEmail).toLowerCase();
+
+    // Helper: intentar reconstruir el email original si viene en formato guest UPN
+    function reconstructFromGuest(upn: string): string | null {
+      if (!upn || !upn.includes('#ext#')) return null;
+      const prefix = upn.split('#ext#')[0];
+      const lastUnderscore = prefix.lastIndexOf('_');
+      if (lastUnderscore > 0) {
+        return `${prefix.slice(0, lastUnderscore)}@${prefix.slice(lastUnderscore + 1)}`.toLowerCase();
+      }
+      return null;
+    }
+
+    const reconstructed = reconstructFromGuest(loginLower);
+
+    // Intentar buscar coincidencias directas en admin/externos
+    const externalsSnap = await db.ref('/admin/externos').once('value');
+    const externals = externalsSnap.exists() ? externalsSnap.val() : null;
+    let isExternalAllowed = false;
+
+    if (externals) {
+      // externals es un objeto con ids como keys
+      Object.keys(externals).forEach((k) => {
+        try {
+          const e = externals[k];
+          const eEmail = String(e?.email || '').toLowerCase();
+          if (!eEmail) return;
+          if (eEmail === loginLower) {
+            isExternalAllowed = true;
+            return;
+          }
+          if (reconstructed && eEmail === reconstructed) {
+            isExternalAllowed = true;
+            return;
+          }
+        } catch (err) {
+          // ignore malformed entries
+        }
+      });
+    }
+
+    if (isExternalAllowed) {
+      functions.logger.log('✅ External email allowed via admin/externos:', { loginEmail });
+      return { success: true, source: 'externos' };
+    }
+  } catch (err) {
+    functions.logger.error('Error checking admin/externos for external access:', err);
+    // No abortar aquí: si la comprobación falla, seguiremos con la validación por dominio
+  }
+
+  // Antes de rechazar por dominio, comprobar si el email o el usuario asociado tiene tareas/proyectos
+  try {
+    const loginLower = String(loginEmail).toLowerCase();
+    const reconstructed = loginLower.includes('#ext#') ? (function (upn: string) {
+      const prefix = upn.split('#ext#')[0];
+      const lastUnderscore = prefix.lastIndexOf('_');
+      if (lastUnderscore > 0) return `${prefix.slice(0, lastUnderscore)}@${prefix.slice(lastUnderscore + 1)}`.toLowerCase();
+      return null;
+    })(loginLower) : null;
+
+    // Buscar usuarios con ese email en /users
+    const foundUserIds: string[] = [];
+    try {
+      const usersByEmail = await db.ref('/users').orderByChild('email').equalTo(loginLower).once('value');
+      if (usersByEmail.exists()) {
+        usersByEmail.forEach((child) => {
+          foundUserIds.push(child.key as string);
+        });
+      }
+      if (reconstructed) {
+        const usersByRecon = await db.ref('/users').orderByChild('email').equalTo(reconstructed).once('value');
+        if (usersByRecon.exists()) {
+          usersByRecon.forEach((child) => {
+            if (!foundUserIds.includes(child.key as string)) foundUserIds.push(child.key as string);
+          });
+        }
+      }
+    } catch (err) {
+      functions.logger.warn('Error querying users by email during access check:', err);
+    }
+
+    // Escanear tareas para ver si existe alguna asignada al email o a alguno de los userIds encontrados
+    try {
+      const tasksSnap = await db.ref('/tasks').once('value');
+      if (tasksSnap.exists()) {
+        let allowedByAssignment = false;
+        tasksSnap.forEach((child) => {
+          if (allowedByAssignment) return; // early exit
+          const t = child.val();
+
+          // Comprobaciones comunes: assignedTo puede ser string (userId) o objeto { userId, ... } o email
+          const assigned = t?.assignedTo;
+          if (assigned) {
+            if (typeof assigned === 'string') {
+              // if it's a userId
+              if (foundUserIds.includes(assigned)) { allowedByAssignment = true; return; }
+              // or stored as email
+              if (String(assigned).toLowerCase() === loginLower) { allowedByAssignment = true; return; }
+              if (reconstructed && String(assigned).toLowerCase() === reconstructed) { allowedByAssignment = true; return; }
+            } else if (typeof assigned === 'object') {
+              const aEmail = String(assigned.email || '').toLowerCase();
+              const aUserId = String(assigned.userId || '').toLowerCase();
+              if (aEmail && (aEmail === loginLower || (reconstructed && aEmail === reconstructed))) { allowedByAssignment = true; return; }
+              if (aUserId && foundUserIds.includes(aUserId)) { allowedByAssignment = true; return; }
+            }
+          }
+
+          // Some tasks use an array of assigneeIds
+          const assigneeIds = t?.assigneeIds || t?.assignedUserIds || null;
+          if (Array.isArray(assigneeIds)) {
+            for (const aid of assigneeIds) {
+              if (foundUserIds.includes(aid)) { allowedByAssignment = true; return; }
+            }
+          }
+
+          // Owner/creator of project reference
+          if (t?.projectId) {
+            // fetch project and check owner
+            try {
+              const projSnap = db.ref(`/projects/${t.projectId}`).once('value');
+              // Note: not awaiting here to keep flow simple; we'll do synchronous check via value
+            } catch (e) {
+              // ignore
+            }
+          }
+        });
+
+        if (allowedByAssignment) {
+          functions.logger.log('✅ Access allowed because user is assigned to a task in site:', { site, loginEmail });
+          return { success: true, source: 'assigned-task' };
+        }
+      }
+    } catch (err) {
+      functions.logger.warn('Error scanning tasks for assignment during access check:', err);
+    }
+    // Si no se permitió por tareas, buscar en proyectos (owner o miembros)
+    try {
+      const projectsSnap = await db.ref('/projects').once('value');
+      if (projectsSnap.exists()) {
+        let allowedByProject = false;
+        projectsSnap.forEach((child) => {
+          if (allowedByProject) return;
+          const p = child.val();
+          if (!p) return;
+          // ownerId
+          if (p.ownerId && foundUserIds.includes(p.ownerId)) { allowedByProject = true; return; }
+          // members array or collaborators
+          const members = p.members || p.collaborators || p.allowedUsers || null;
+          if (Array.isArray(members)) {
+            for (const m of members) {
+              if (foundUserIds.includes(m)) { allowedByProject = true; return; }
+            }
+          }
+        });
+
+        if (allowedByProject) {
+          functions.logger.log('✅ Access allowed because user is owner/member of a project in site:', { site, loginEmail });
+          return { success: true, source: 'project-membership' };
+        }
+      }
+    } catch (err) {
+      functions.logger.warn('Error scanning projects for membership during access check:', err);
+    }
+  } catch (err) {
+    functions.logger.error('Unexpected error during assignment/project check:', err);
+  }
+
   if (!emailDomain || emailDomain !== expectedDomain.toLowerCase()) {
     functions.logger.warn('⚠️ Domain mismatch:', { emailDomain, expectedDomain });
     throw new functions.https.HttpsError(
