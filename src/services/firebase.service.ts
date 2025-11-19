@@ -155,6 +155,18 @@ export const tasksService = {
     return newTaskRef.key;
   },
 
+  getAll: async (): Promise<Task[]> => {
+  const dbToUse = resolveDatabase();
+  const tasksRef = ref(dbToUse, 'tasks');
+    const snapshot = await get(tasksRef);
+    if (!snapshot.exists()) return [];
+    const tasks: Task[] = [];
+    snapshot.forEach((child) => {
+      tasks.push(child.val());
+    });
+    return tasks;
+  },
+
   update: async (taskId: string, updates: Partial<Task>) => {
   const dbToUse = resolveDatabase();
   const taskRef = ref(dbToUse, `tasks/${taskId}`);

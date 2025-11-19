@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { projectsService } from '@/services/firebase.service';
+import { tasksService } from '@/services/firebase.service';
+import { DonutChart, BarChart } from '@/components/ui/Charts';
 import { Project, Task } from '@/types';
 import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 
@@ -15,10 +17,10 @@ export function DashboardPage() {
     const loadData = async () => {
       try {
         const [projectsData, tasksData] = await Promise.all([
-          projectsService.getAll(),
-          // Aquí deberías cargar solo las tareas del usuario actual
-          Promise.resolve([]) as Promise<Task[]>,
-        ]);
+            projectsService.getAll(),
+            // Cargar todas las tareas y filtrarlas en cliente por assignee
+            tasksService.getAll(),
+          ]);
         
         setProjects(projectsData);
         setTasks(tasksData);
@@ -45,6 +47,19 @@ export function DashboardPage() {
   const overdueTasks = myTasks.filter(t => 
     t.dueDate && t.dueDate < Date.now() && t.status !== 'completed'
   );
+
+  // Datos para gráficos
+  const statusData = [
+    { label: 'Completadas', value: completedTasks.length, color: '#10b981' },
+    { label: 'En progreso', value: inProgressTasks.length, color: '#3b82f6' },
+    { label: 'Vencidas', value: overdueTasks.length, color: '#ef4444' },
+  ];
+
+  const overdueByProject = myProjects.map((p) => ({
+    label: p.name,
+    value: myTasks.filter(t => t.projectId === p.id && t.dueDate && t.dueDate < Date.now() && t.status !== 'completed').length,
+    color: p.color || undefined,
+  })).filter(i => i.value > 0);
 
   if (loading) {
     return (
@@ -113,6 +128,32 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Estado de mis tareas</CardTitle>
+            <CardDescription>Resumen por estado</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center">
+              <DonutChart data={statusData} size={160} hole={56} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Vencidas por proyecto</CardTitle>
+            <CardDescription>Proyectos con tareas vencidas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {overdueByProject.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hay tareas vencidas por proyecto</p>
+            ) : (
+              <BarChart items={overdueByProject} />
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Mis Proyectos</CardTitle>
