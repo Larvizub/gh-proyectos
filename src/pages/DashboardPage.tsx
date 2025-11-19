@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/AuthContext';
 import { projectsService } from '@/services/firebase.service';
 import { tasksService } from '@/services/firebase.service';
-import { DonutChart, BarChart } from '@/components/ui/Charts';
+import { DonutChart, BarChart, StackedBar, PieChart, LineChart } from '@/components/ui/Charts';
 import { Project, Task } from '@/types';
 import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 
@@ -60,6 +60,39 @@ export function DashboardPage() {
     value: myTasks.filter(t => t.projectId === p.id && t.dueDate && t.dueDate < Date.now() && t.status !== 'completed').length,
     color: p.color || undefined,
   })).filter(i => i.value > 0);
+
+  // Distribución por prioridad
+  const priorityCounts = {
+    low: myTasks.filter(t => t.priority === 'low').length,
+    medium: myTasks.filter(t => t.priority === 'medium').length,
+    high: myTasks.filter(t => t.priority === 'high').length,
+    urgent: myTasks.filter(t => t.priority === 'urgent').length,
+  };
+
+  const priorityData = [
+    { label: 'Baja', value: priorityCounts.low, color: '#10b981' },
+    { label: 'Media', value: priorityCounts.medium, color: '#f59e0b' },
+    { label: 'Alta', value: priorityCounts.high, color: '#ef4444' },
+    { label: 'Urgente', value: priorityCounts.urgent, color: '#b91c1c' },
+  ].filter(d => d.value > 0);
+
+  // Tendencia: tareas por día (últimos 7 días)
+  const days = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate() - (6 - i));
+    return d;
+  });
+
+  const tasksPerDay = days.map((day) => {
+    const start = day.getTime();
+    const end = start + 24 * 60 * 60 * 1000;
+    const count = myTasks.filter(t => {
+      const ts = (t.updatedAt || t.createdAt || 0) as number;
+      return ts >= start && ts < end;
+    }).length;
+    return count;
+  });
 
   if (loading) {
     return (
@@ -134,8 +167,8 @@ export function DashboardPage() {
             <CardDescription>Resumen por estado</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-center">
-              <DonutChart data={statusData} size={160} hole={56} />
+            <div className="px-2">
+              <StackedBar segments={statusData} height={20} />
             </div>
           </CardContent>
         </Card>
@@ -151,6 +184,34 @@ export function DashboardPage() {
             ) : (
               <BarChart items={overdueByProject} />
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Prioridad</CardTitle>
+            <CardDescription>Distribución por prioridad</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {priorityData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hay tareas con prioridad definida</p>
+            ) : (
+              <div className="flex items-center justify-center">
+                <PieChart data={priorityData} size={120} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Tendencia semanal</CardTitle>
+            <CardDescription>Tareas creadas/actualizadas por día (7 días)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center">
+              <LineChart points={tasksPerDay} width={260} height={64} />
+            </div>
           </CardContent>
         </Card>
 
