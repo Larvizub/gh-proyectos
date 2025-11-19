@@ -86,6 +86,65 @@ export const projectsService = {
   },
 };
 
+// Notifications
+export const notificationsService = {
+  createForUsers: async (userIds: string[], payload: { type: string; title: string; message?: string; relatedId?: string; excludeUserId?: string | null } ) => {
+    // Try to use server callable when available (ensures notifications are created in default DB and emails sent)
+    try {
+      const fn = cloudFunctions ? httpsCallable(cloudFunctions as any, 'sendNotification') : null;
+      if (fn) {
+        // Try to pass the configured DB URL for the selected site so the callable can resolve users there
+        const site = typeof window !== 'undefined' ? (localStorage.getItem('selectedSite') as SiteKey | null) : null;
+        const dbUrl = site ? DATABASE_URLS[site] : undefined;
+        const payloadToSend = { userIds, payload, dbUrl } as any;
+        try {
+          await fn(payloadToSend);
+          return;
+        } catch (err) {
+          // fallthrough to DB write fallback
+          // eslint-disable-next-line no-console
+          console.warn('notificationsService: sendNotification callable failed, falling back to DB write', err);
+        }
+      }
+
+      // Fallback: write notifications to the selected DB (legacy behavior)
+      const dbToUse = resolveDatabase();
+      const notificationsRef = ref(dbToUse, 'notifications');
+      const now = Date.now();
+      const { type, title, message, relatedId, excludeUserId } = payload;
+
+      for (const userId of userIds) {
+        if (!userId) continue;
+        if (excludeUserId && userId === excludeUserId) continue;
+        const newNotifRef = push(notificationsRef);
+        const notif = {
+          id: newNotifRef.key,
+          userId,
+          type,
+          title,
+          message: message || '',
+          read: false,
+          relatedId: relatedId || null,
+          createdAt: now,
+        } as any;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await set(newNotifRef, notif);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn('Failed to create notification for user', userId, err);
+        }
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('notificationsService.createForUsers failed', err);
+      throw err;
+    }
+  }
+  // La función notifyTaskUpdate se ha eliminado porque las notificaciones
+  // ahora se envían automáticamente mediante triggers de base de datos (.onWrite)
+};
+
 // Tareas
 export const tasksService = {
   create: async (task: Omit<Task, 'id'>) => {

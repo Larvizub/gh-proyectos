@@ -106,10 +106,13 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
       tasksService.update(task.id, updates),
       {
         loading: 'Guardando cambios...',
-        success: 'Tarea actualizada',
+        success: 'Tarea actualizada (notificaciones automáticas)',
         error: 'Error al guardar',
       }
     );
+
+    // Las notificaciones ahora se envían automáticamente mediante triggers de base de datos
+    // No es necesario llamar a funciones manualmente
 
     if (onSaved) onSaved();
     onClose();

@@ -4,8 +4,7 @@
   },
   "functions": {
     "source": "functions",
-    "runtime": "nodejs22",
-    "platform": "gcfv2"
+    "runtime": "nodejs22"
   },
   "hosting": {
     "public": "dist",
@@ -21,5 +20,24 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "functions": {
+      "port": 5001
+    },
+    "database": {
+      "port": 9000
+    },
+    "hosting": {
+      "port": 5000
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
   }
 }
