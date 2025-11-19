@@ -158,6 +158,18 @@ export const tasksService = {
   update: async (taskId: string, updates: Partial<Task>) => {
   const dbToUse = resolveDatabase();
   const taskRef = ref(dbToUse, `tasks/${taskId}`);
+    
+    // Log para diagnosticar - URL completa
+    try {
+      const dbRef = (dbToUse as any)._repoInternal?.repoInfo_;
+      const fullUrl = dbRef ? `${dbRef.secure ? 'https' : 'http'}://${dbRef.host}` : 'unknown';
+      console.log('[tasksService.update] Database URL:', fullUrl);
+      console.log('[tasksService.update] TaskId:', taskId);
+      console.log('[tasksService.update] Updates:', updates);
+    } catch (e) {
+      console.warn('[tasksService.update] Could not log database details', e);
+    }
+    
     // Protect against indefinite hangs by racing the update with a timeout
     const op = update(taskRef, { ...updates, updatedAt: Date.now() });
     const timeoutMs = 15000; // 15s
@@ -165,6 +177,8 @@ export const tasksService = {
       op,
       new Promise((_, rej) => setTimeout(() => rej(new Error('update timeout')), timeoutMs)),
     ]);
+    
+    console.log('[tasksService.update] Task updated successfully');
   },
 
   delete: async (taskId: string) => {

@@ -31,17 +31,58 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
   const [fileInputKey, setFileInputKey] = useState(Date.now());
   const { user } = useAuth();
   const [openAssignees, setOpenAssignees] = useState(false);
+  
+  // Estado inicial para detectar cambios
+  const [initialState, setInitialState] = useState<{
+    title: string;
+    description: string;
+    status: TaskStatus;
+    priority: 'low' | 'medium' | 'high' | 'urgent';
+    dueInput: string;
+    selectedAssignees: string[];
+    selectedTags: string[];
+  } | null>(null);
 
   useEffect(() => {
     if (!task) return;
-    setTitle(task.title ?? '');
-    setDescription(task.description ?? '');
-    setStatus(task.status ?? 'todo');
-    setPriority(task.priority ?? 'medium');
-    setDueInput(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : '');
-    setSelectedAssignees(task.assigneeIds || []);
-    setSelectedTags(task.tags || []);
+    const newTitle = task.title ?? '';
+    const newDescription = task.description ?? '';
+    const newStatus = task.status ?? 'todo';
+    const newPriority = task.priority ?? 'medium';
+    const newDueInput = task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : '';
+    const newAssignees = task.assigneeIds || [];
+    const newTags = task.tags || [];
+    
+    setTitle(newTitle);
+    setDescription(newDescription);
+    setStatus(newStatus);
+    setPriority(newPriority);
+    setDueInput(newDueInput);
+    setSelectedAssignees(newAssignees);
+    setSelectedTags(newTags);
+    
+    // Guardar estado inicial
+    setInitialState({
+      title: newTitle,
+      description: newDescription,
+      status: newStatus,
+      priority: newPriority,
+      dueInput: newDueInput,
+      selectedAssignees: newAssignees,
+      selectedTags: newTags,
+    });
   }, [task]);
+  
+  // Detectar si hay cambios
+  const hasChanges = initialState ? (
+    title !== initialState.title ||
+    description !== initialState.description ||
+    status !== initialState.status ||
+    priority !== initialState.priority ||
+    dueInput !== initialState.dueInput ||
+    JSON.stringify(selectedAssignees.sort()) !== JSON.stringify(initialState.selectedAssignees.sort()) ||
+    JSON.stringify(selectedTags.sort()) !== JSON.stringify(initialState.selectedTags.sort())
+  ) : false;
 
   useEffect(() => {
     // load users to allow assigning
@@ -321,7 +362,9 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
 
               <div className="flex gap-3 justify-end pt-2">
                 <Button type="button" variant="outline" onClick={onClose}>Cerrar</Button>
-                <Button type="submit">Guardar</Button>
+                <Button type="submit" disabled={!hasChanges}>
+                  {hasChanges ? 'Guardar cambios' : 'Sin cambios'}
+                </Button>
               </div>
             </form>
           </div>

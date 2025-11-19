@@ -38,10 +38,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("Firebase user authenticated:", fbUser.uid);
         if (!mounted) return;
         setFirebaseUser(fbUser);
+        
+        // ESTRATEGIA: Primero intentar leer el email correcto desde la base de datos
+        // Si el usuario ya inició sesión antes, su email normalizado está guardado
+        let normalizedEmail = fbUser.email || "";
+        const currentSite = (typeof window !== 'undefined' && localStorage.getItem('selectedSite')) as SiteKey | null || selectedSite;
+        
+        try {
+          const dbToRead = getDatabaseForSite(currentSite);
+          const userRef = ref(dbToRead, `users/${fbUser.uid}`);
+          const userSnap = await get(userRef);
+          
+          if (userSnap.exists()) {
+            const existingUser = userSnap.val();
+            // Si ya existe el usuario con email válido (no UPN), usarlo
+            if (existingUser?.email && !existingUser.email.includes('#ext#')) {
+              normalizedEmail = existingUser.email;
+              console.log('[onAuthStateChanged] Using existing email from DB:', normalizedEmail);
+            } else {
+              console.log('[onAuthStateChanged] Existing user has UPN email, will normalize');
+            }
+          } else {
+            console.log('[onAuthStateChanged] User does not exist in DB yet');
+          }
+        } catch (err) {
+          console.warn('[onAuthStateChanged] Failed to read user from DB:', err);
+        }
+        
+        // Si el email sigue siendo un UPN, normalizarlo
+        if (normalizedEmail.includes('#ext#')) {
+          console.log('[onAuthStateChanged] Detected guest UPN, normalizing:', normalizedEmail);
+          // Reconstruir desde el UPN: luis.arvizu_costaricacc.com#ext#@... -> luis.arvizu@costaricacc.com
+          const marker = '#ext#';
+          const upnLower = normalizedEmail.toLowerCase();
+          const prefix = upnLower.split(marker)[0];
+          const lastUnderscore = prefix.lastIndexOf('_');
+          if (lastUnderscore > 0) {
+            const local = prefix.slice(0, lastUnderscore);
+            const domain = prefix.slice(lastUnderscore + 1);
+            if (domain.includes('.')) {
+              normalizedEmail = `${local}@${domain}`;
+              console.log('[onAuthStateChanged] Reconstructed from UPN:', normalizedEmail);
+            }
+          }
+        }
+        
         const userData: User = {
           id: fbUser.uid,
-          email: fbUser.email || "",
-          displayName: fbUser.displayName || fbUser.email?.split("@")[0] || "Usuario",
+          email: normalizedEmail,
+          displayName: fbUser.displayName || normalizedEmail.split("@")[0] || "Usuario",
           photoURL: fbUser.photoURL || undefined,
           // Default local role (UI only) — persisted payloads must exclude this
           // field so we do not overwrite an existing server-side assignment.
@@ -247,18 +292,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Build the user object with Graph data preferred
         function normalizeEmailFromGraph(profile: any, firebaseEmail?: string) {
-          // Prefer the `mail` property
-          if (profile?.mail) return profile.mail;
-          // otherMails may contain the original external email for guest users
-          if (Array.isArray(profile?.otherMails) && profile.otherMails.length > 0) return profile.otherMails[0];
+          console.log('[normalizeEmailFromGraph] Input:', {
+            mail: profile?.mail,
+            userPrincipalName: profile?.userPrincipalName,
+            otherMails: profile?.otherMails,
+            firebaseEmail,
+          });
+
+          // 1. Prefer the `mail` property (standard email)
+          if (profile?.mail && !profile.mail.includes('#ext#')) {
+            console.log('[normalizeEmailFromGraph] Using mail property:', profile.mail);
+            return profile.mail;
+          }
+
+          // 2. otherMails may contain the original external email for guest users
+          if (Array.isArray(profile?.otherMails) && profile.otherMails.length > 0) {
+            const otherMail = profile.otherMails[0];
+            if (otherMail && !otherMail.includes('#ext#')) {
+              console.log('[normalizeEmailFromGraph] Using otherMails[0]:', otherMail);
+              return otherMail;
+            }
+          }
 
           const upn: string | undefined = profile?.userPrincipalName || firebaseEmail;
-          if (!upn) return '';
+          if (!upn) {
+            console.warn('[normalizeEmailFromGraph] No UPN found, returning empty');
+            return '';
+          }
 
-          // Handle guest UPNs like: local_domain#ext#@tenant.onmicrosoft.com
+          // 3. Handle guest UPNs like: local_domain#ext#@tenant.onmicrosoft.com
           const marker = '#ext#';
           const upnLower = upn.toLowerCase();
           if (upnLower.includes(marker)) {
+            console.log('[normalizeEmailFromGraph] Processing guest UPN:', upnLower);
             // prefix is before '#ext#'
             const prefix = upnLower.split(marker)[0];
             // Attempt to split last '_' to recover local and domain: local_domain
@@ -267,13 +333,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const local = prefix.slice(0, lastUnderscore);
               const domain = prefix.slice(lastUnderscore + 1);
               if (domain.includes('.')) {
-                return `${local}@${domain}`;
+                const reconstructed = `${local}@${domain}`;
+                console.log('[normalizeEmailFromGraph] Reconstructed from UPN:', reconstructed);
+                return reconstructed;
               }
             }
           }
 
-          // Fallbacks: prefer firebaseEmail if present, otherwise return the UPN as-is
-          if (firebaseEmail) return firebaseEmail;
+          // 4. Fallbacks: prefer firebaseEmail if present and valid
+          if (firebaseEmail && !firebaseEmail.includes('#ext#')) {
+            console.log('[normalizeEmailFromGraph] Using firebaseEmail fallback:', firebaseEmail);
+            return firebaseEmail;
+          }
+
+          // 5. Last resort: return the UPN as-is (may not be valid email)
+          console.warn('[normalizeEmailFromGraph] Returning UPN as-is (may be invalid):', upn);
           return upn;
         }
 

@@ -33,10 +33,6 @@ try {
   functions.logger.warn('MSAL initialization failed:', err);
 }
 
-// ============================================================================
-// HELPERS
-// ============================================================================
-
 async function getAccessToken(): Promise<string | null> {
   if (!cca) {
     functions.logger.warn('Cannot get access token: MSAL not initialized');
@@ -108,16 +104,180 @@ async function getUserEmail(userId: string, db: admin.database.Database): Promis
   try {
     const userSnap = await db.ref(`/users/${userId}`).once('value');
     const user = userSnap.val();
-    return user?.email || null;
+    const email = user?.email || null;
+    
+    if (!email) {
+      functions.logger.warn(`⚠️ User ${userId} has no email configured. User data:`, JSON.stringify(user));
+    } else {
+      functions.logger.log(`📧 Found email for user ${userId}: ${email}`);
+    }
+    
+    return email;
   } catch (err) {
     functions.logger.error('Error fetching user email:', err);
     return null;
   }
 }
 
-// ============================================================================
-// PLANTILLAS DE CORREO
-// ============================================================================
+function getEmailTemplate(content: string): string {
+  return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .email-wrapper {
+          background-color: #f8fafc;
+          padding: 24px;
+        }
+        
+        .email-container {
+          max-width: 600px;
+          margin: 0 auto;
+          background-color: #ffffff;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .email-header {
+          background: #ffffff;
+          padding: 32px 24px;
+          text-align: center;
+          border-bottom: 3px solid #F2B05F;
+        }
+        
+        .logo-container {
+          margin-bottom: 20px;
+        }
+        
+        .logo-img {
+          display: block;
+          margin: 0 auto;
+          max-width: 200px;
+          height: auto;
+        }
+        
+        .email-title {
+          color: #273c2a;
+          font-size: 24px;
+          font-weight: 700;
+          margin: 0;
+          line-height: 1.2;
+        }
+        
+        .email-subtitle {
+          color: #64748b;
+          font-size: 14px;
+          margin: 8px 0 0 0;
+        }
+        
+        .email-body {
+          padding: 32px 24px;
+          color: #213547;
+        }
+        
+        .info-card {
+          background-color: #f8fafc;
+          border-radius: 12px;
+          padding: 16px;
+          margin-bottom: 16px;
+          border-left: 4px solid #F2B05F;
+        }
+        
+        .info-label {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #64748b;
+          margin: 0 0 4px 0;
+          font-weight: 600;
+        }
+        
+        .info-value {
+          font-size: 16px;
+          font-weight: 600;
+          color: #213547;
+          margin: 0;
+        }
+        
+        .badge {
+          display: inline-block;
+          padding: 6px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          margin-right: 8px;
+          margin-bottom: 8px;
+        }
+        
+        .footer-text {
+          font-size: 14px;
+          color: #64748b;
+          line-height: 1.6;
+          margin: 24px 0 0 0;
+        }
+        
+        .cta-button {
+          display: inline-block;
+          background: linear-gradient(135deg, #F2B05F 0%, #FDCF85 100%);
+          color: #273c2a;
+          padding: 14px 28px;
+          border-radius: 8px;
+          text-decoration: none;
+          font-weight: 600;
+          font-size: 14px;
+          margin-top: 24px;
+          transition: transform 0.2s;
+        }
+        
+        .email-footer {
+          background-color: #f8fafc;
+          padding: 24px;
+          text-align: center;
+          font-size: 12px;
+          color: #94a3b8;
+          border-top: 1px solid #e2e8f0;
+        }
+        
+        @media only screen and (max-width: 600px) {
+          .email-wrapper {
+            padding: 16px !important;
+          }
+          
+          .email-header {
+            padding: 24px 16px !important;
+          }
+          
+          .email-body {
+            padding: 24px 16px !important;
+          }
+          
+          .email-title {
+            font-size: 20px !important;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-wrapper">
+        <div class="email-container">
+          ${content}
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
 
 function buildProjectCreatedEmail(project: any, ownerName: string): string {
   const projectName = escapeHtml(project?.name || 'Nuevo Proyecto');
@@ -125,41 +285,47 @@ function buildProjectCreatedEmail(project: any, ownerName: string): string {
   const startDate = formatDate(project?.startDate);
   const endDate = formatDate(project?.endDate);
 
-  return `
-    <div style="margin:0;padding:24px;background:#f8fafc;font-family:'Inter',system-ui,-apple-system,sans-serif;">
-      <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
-        <div style="padding:24px;background:linear-gradient(135deg, #2563eb 0%, #1e40af 100%);color:#fff;">
-          <h1 style="margin:0;font-size:24px;font-weight:700;">🎉 Nuevo Proyecto Creado</h1>
+  const content = `
+    <div class="email-header">
+      <div class="logo-container">
+        <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+      </div>
+      <h1 class="email-title">🎉 Nuevo Proyecto Creado</h1>
+      <p class="email-subtitle">Se ha creado un nuevo proyecto en la plataforma</p>
+    </div>
+    
+    <div class="email-body">
+      <h2 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 700; color: inherit;">${projectName}</h2>
+      <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #64748b;">${description}</p>
+      
+      <div class="info-card">
+        <p class="info-label">👤 Propietario</p>
+        <p class="info-value">${escapeHtml(ownerName)}</p>
+      </div>
+      
+      <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+        <div class="info-card" style="flex: 1; min-width: 200px;">
+          <p class="info-label">📅 Fecha de Inicio</p>
+          <p class="info-value" style="font-size: 14px;">${startDate}</p>
         </div>
-        <div style="padding:32px 24px;">
-          <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#0f172a;">${projectName}</h2>
-          <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#64748b;">${description}</p>
-          
-          <div style="display:grid;gap:16px;margin-bottom:24px;">
-            <div style="padding:16px;background:#f1f5f9;border-radius:12px;">
-              <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Propietario</p>
-              <p style="margin:0;font-size:16px;font-weight:600;color:#0f172a;">${escapeHtml(ownerName)}</p>
-            </div>
-            
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-              <div style="padding:16px;background:#f1f5f9;border-radius:12px;">
-                <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Fecha Inicio</p>
-                <p style="margin:0;font-size:14px;font-weight:600;color:#0f172a;">${startDate}</p>
-              </div>
-              <div style="padding:16px;background:#f1f5f9;border-radius:12px;">
-                <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Fecha Fin</p>
-                <p style="margin:0;font-size:14px;font-weight:600;color:#0f172a;">${endDate}</p>
-              </div>
-            </div>
-          </div>
-          
-          <p style="margin:0;font-size:14px;color:#64748b;">
-            Accede a la plataforma para ver todos los detalles y comenzar a colaborar.
-          </p>
+        <div class="info-card" style="flex: 1; min-width: 200px;">
+          <p class="info-label">🏁 Fecha de Fin</p>
+          <p class="info-value" style="font-size: 14px;">${endDate}</p>
         </div>
       </div>
+      
+      <p class="footer-text">
+        Accede a la plataforma para ver todos los detalles, gestionar tareas y colaborar con tu equipo.
+      </p>
+    </div>
+    
+    <div class="email-footer">
+      <p style="margin: 0;">© ${new Date().getFullYear()} Sistema de Gestión de Proyectos</p>
+      <p style="margin: 8px 0 0 0;">Este es un mensaje automático, por favor no responder.</p>
     </div>
   `;
+
+  return getEmailTemplate(content);
 }
 
 function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assignedUserName?: string): string {
@@ -171,80 +337,118 @@ function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assign
   const startDate = formatDate(task?.startDate);
   const dueDate = formatDate(task?.dueDate);
 
-  const priorityColors: Record<string, string> = {
-    low: '#10b981',
-    medium: '#f59e0b',
-    high: '#ef4444',
-    urgent: '#dc2626'
+  const priorityConfig: Record<string, { color: string; label: string; emoji: string }> = {
+    low: { color: '#10b981', label: 'Baja', emoji: '🟢' },
+    medium: { color: '#f59e0b', label: 'Media', emoji: '🟡' },
+    high: { color: '#ef4444', label: 'Alta', emoji: '🔴' },
+    urgent: { color: '#dc2626', label: 'Urgente', emoji: '🚨' }
   };
-  const priorityColor = priorityColors[task?.priority] || '#f59e0b';
+  const priorityInfo = priorityConfig[task?.priority] || priorityConfig.medium;
 
-  const statusColors: Record<string, string> = {
-    todo: '#64748b',
-    'in-progress': '#3b82f6',
-    completed: '#10b981',
-    blocked: '#ef4444'
+  const statusConfig: Record<string, { color: string; label: string; emoji: string }> = {
+    todo: { color: '#64748b', label: 'Por Hacer', emoji: '📋' },
+    'in-progress': { color: '#3b82f6', label: 'En Progreso', emoji: '⚙️' },
+    completed: { color: '#10b981', label: 'Completada', emoji: '✅' },
+    blocked: { color: '#ef4444', label: 'Bloqueada', emoji: '🚫' }
   };
-  const statusColor = statusColors[task?.status] || '#64748b';
+  const statusInfo = statusConfig[task?.status] || statusConfig.todo;
 
-  return `
-    <div style="margin:0;padding:24px;background:#f8fafc;font-family:'Inter',system-ui,-apple-system,sans-serif;">
-      <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
-        <div style="padding:24px;background:linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);color:#fff;">
-          <p style="margin:0 0 4px;font-size:14px;opacity:0.9;">Actualización de Tarea</p>
-          <h1 style="margin:0;font-size:20px;font-weight:700;">${projectName}</h1>
+  const content = `
+    <div class="email-header">
+      <div class="logo-container">
+        <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+      </div>
+      <h1 class="email-title">Actualización de Tarea</h1>
+      <p class="email-subtitle">${projectName}</p>
+    </div>
+    
+    <div class="email-body">
+      <h2 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 700; color: inherit;">${taskTitle}</h2>
+      <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #64748b;">${taskDesc}</p>
+      
+      <div style="margin-bottom: 24px;">
+        <span class="badge" style="background-color: ${priorityInfo.color}; color: #ffffff;">
+          Prioridad: ${priorityInfo.label}
+        </span>
+        <span class="badge" style="background-color: ${statusInfo.color}; color: #ffffff;">
+          Estado: ${statusInfo.label}
+        </span>
+      </div>
+      
+      <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+        <div class="info-card" style="flex: 1; min-width: 200px;">
+          <p class="info-label">📅 Fecha de Inicio</p>
+          <p class="info-value" style="font-size: 14px;">${startDate}</p>
         </div>
-        
-        <div style="padding:32px 24px;">
-          <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#0f172a;">${taskTitle}</h2>
-          <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#64748b;">${taskDesc}</p>
-          
-          <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;">
-            <span style="padding:6px 12px;background:${priorityColor};color:#fff;border-radius:6px;font-size:12px;font-weight:600;">
-              Prioridad: ${priority}
-            </span>
-            <span style="padding:6px 12px;background:${statusColor};color:#fff;border-radius:6px;font-size:12px;font-weight:600;">
-              Estado: ${status}
-            </span>
-          </div>
-          
-          <div style="display:grid;gap:16px;margin-bottom:24px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-              <div style="padding:16px;background:#f1f5f9;border-radius:12px;">
-                <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Fecha Inicio</p>
-                <p style="margin:0;font-size:14px;font-weight:600;color:#0f172a;">${startDate}</p>
-              </div>
-              <div style="padding:16px;background:#f1f5f9;border-radius:12px;">
-                <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Fecha Vencimiento</p>
-                <p style="margin:0;font-size:14px;font-weight:600;color:#0f172a;">${dueDate}</p>
-              </div>
-            </div>
-            
-            <div style="padding:16px;background:#f1f5f9;border-radius:12px;">
-              <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Propietario del Proyecto</p>
-              <p style="margin:0;font-size:16px;font-weight:600;color:#0f172a;">${escapeHtml(ownerName)}</p>
-            </div>
-            
-            ${assignedUserName ? `
-            <div style="padding:16px;background:#ede9fe;border-radius:12px;border:2px solid #8b5cf6;">
-              <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:#6d28d9;">Asignado a</p>
-              <p style="margin:0;font-size:16px;font-weight:600;color:#5b21b6;">${escapeHtml(assignedUserName)}</p>
-            </div>
-            ` : ''}
-          </div>
-          
-          <p style="margin:0;font-size:14px;color:#64748b;">
-            Accede a la plataforma para ver el estado completo y continuar con la colaboración.
-          </p>
+        <div class="info-card" style="flex: 1; min-width: 200px;">
+          <p class="info-label">⏰ Fecha de Vencimiento</p>
+          <p class="info-value" style="font-size: 14px;">${dueDate}</p>
         </div>
       </div>
+      
+      <div class="info-card">
+        <p class="info-label">👤 Propietario del Proyecto</p>
+        <p class="info-value">${escapeHtml(ownerName)}</p>
+      </div>
+      
+      ${assignedUserName ? `
+      <div class="info-card" style="background: linear-gradient(135deg, rgba(242, 176, 95, 0.15) 0%, rgba(253, 207, 133, 0.15) 100%); border-left-color: #F2B05F;">
+        <p class="info-label">👨‍💼 Asignado a</p>
+        <p class="info-value" style="color: #273c2a;">${escapeHtml(assignedUserName)}</p>
+      </div>
+      ` : ''}
+      
+      <p class="footer-text">
+        Accede a la plataforma para ver el estado completo de la tarea, agregar comentarios o actualizar su progreso.
+      </p>
+    </div>
+    
+    <div class="email-footer">
+      <p style="margin: 0;">© ${new Date().getFullYear()} Sistema de Gestión de Proyectos</p>
+      <p style="margin: 8px 0 0 0;">Este es un mensaje automático, por favor no responder.</p>
     </div>
   `;
+
+  return getEmailTemplate(content);
 }
 
-// ============================================================================
-// CLOUD FUNCTIONS
-// ============================================================================
+function buildCommentNotificationEmail(comment: any, task: any, project: any, commenterName: string): string {
+  const taskTitle = escapeHtml(task?.title || 'Tarea sin título');
+  const projectName = escapeHtml(project?.name || 'Proyecto sin nombre');
+  const commentText = escapeHtml(comment?.content || comment?.text || 'Sin texto');
+  const commentDate = formatDate(comment?.createdAt);
+
+  const content = `
+    <div class="email-header">
+      <div class="logo-container">
+        <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+      </div>
+      <h1 class="email-title">Nuevo Comentario en Tarea</h1>
+      <p class="email-subtitle">${projectName}</p>
+    </div>
+    
+    <div class="email-body">
+      <h2 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 700; color: inherit;">${taskTitle}</h2>
+      
+      <div class="info-card" style="background: linear-gradient(135deg, rgba(242, 176, 95, 0.15) 0%, rgba(253, 207, 133, 0.15) 100%); border-left-color: #F2B05F; margin-bottom: 24px;">
+        <p class="info-label">💬 Comentario de ${escapeHtml(commenterName)}</p>
+        <p style="margin: 8px 0 0 0; font-size: 15px; line-height: 1.6; color: #213547;">${commentText}</p>
+        <p style="margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;">${commentDate}</p>
+      </div>
+      
+      <p class="footer-text">
+        Accede a la plataforma para ver la tarea completa y responder al comentario.
+      </p>
+    </div>
+    
+    <div class="email-footer">
+      <p style="margin: 0;">© ${new Date().getFullYear()} Sistema de Gestión de Proyectos</p>
+      <p style="margin: 8px 0 0 0;">Este es un mensaje automático, por favor no responder.</p>
+    </div>
+  `;
+
+  return getEmailTemplate(content);
+}
 
 /**
  * Trigger: Se ejecuta cuando se crea un nuevo proyecto
@@ -315,14 +519,9 @@ export const onTaskUpdated = functions.database
 
     const before = change.before.exists() ? change.before.val() : null;
     const after = change.after.val();
+    const isNewTask = !before;
 
-    // Si es una creación nueva, no notificar (solo notificar en actualizaciones)
-    if (!before) {
-      functions.logger.log('📝 Task created, skipping notification:', taskId);
-      return null;
-    }
-
-    functions.logger.log('📝 Task updated:', taskId);
+    functions.logger.log(`📝 Task ${isNewTask ? 'created' : 'updated'}:`, taskId);
 
     // Verificar que la tarea tenga un proyecto asociado
     if (!after?.projectId) {
@@ -401,16 +600,193 @@ export const onTaskUpdated = functions.database
 
     // Enviar correo
     try {
-      const subject = `Tarea actualizada: ${after.title || 'Sin título'} - ${project.name}`;
+      const action = isNewTask ? 'creada' : 'actualizada';
+      const subject = `Tarea ${action}: ${after.title || 'Sin título'} - ${project.name}`;
       const body = buildTaskUpdateEmail(after, project, ownerName, assignedUserName);
+      
+      functions.logger.log(`📧 Sending email to ${recipients.length} recipient(s):`, recipients.join(', '));
       
       await sendEmail(accessToken, recipients, subject, body);
       
-      functions.logger.log('✅ Task update email sent to:', recipients.join(', '));
+      functions.logger.log(`✅ Task ${action} email sent successfully to:`, recipients.join(', '));
     } catch (err) {
-      functions.logger.error('❌ Failed to send task update email:', err);
+      functions.logger.error('❌ Failed to send task email:', err);
     }
 
+    return null;
+  });
+
+/**
+ * Helper function para procesar notificaciones de comentarios
+ */
+async function processCommentNotification(comment: any, db: admin.database.Database) {
+  functions.logger.log('💬 Processing comment notification:', comment.id);
+  functions.logger.log('📋 Comment data:', { 
+    taskId: comment.taskId, 
+    userId: comment.userId,
+    content: comment.content?.substring(0, 50)
+  });
+
+  if (!comment?.taskId) {
+    functions.logger.warn('⚠️ Comment has no taskId, skipping notification');
+    return;
+  }
+
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    functions.logger.warn('⚠️ No access token available, skipping email');
+    return;
+  }
+
+  // Obtener información de la tarea
+  const taskSnap = await db.ref(`/tasks/${comment.taskId}`).once('value');
+  const task = taskSnap.val();
+
+  if (!task) {
+    functions.logger.warn('⚠️ Task not found for comment, skipping email');
+    return;
+  }
+
+  functions.logger.log('📝 Task found:', { 
+    id: task.id, 
+    title: task.title,
+    projectId: task.projectId,
+    assigneeIds: task.assigneeIds
+  });
+
+  // Obtener información del proyecto
+  const projectSnap = await db.ref(`/projects/${task.projectId}`).once('value');
+  const project = projectSnap.val();
+
+  if (!project) {
+    functions.logger.warn('⚠️ Project not found for task, skipping email');
+    return;
+  }
+
+  functions.logger.log('📁 Project found:', { 
+    id: project.id, 
+    name: project.name,
+    ownerId: project.ownerId
+  });
+
+  // Obtener información del comentarista
+  const commenterSnap = await db.ref(`/users/${comment.userId}`).once('value');
+  const commenterData = commenterSnap.val();
+  const commenterName = commenterData?.displayName || commenterData?.name || comment.userDisplayName || 'Usuario';
+
+  // Recolectar destinatarios: owner del proyecto y usuarios asignados
+  // Se notifica a TODOS los involucrados (incluyendo al autor del comentario)
+  const recipients: string[] = [];
+
+  // Email del owner del proyecto
+  if (project.ownerId) {
+    const ownerEmail = await getUserEmail(project.ownerId, db);
+    if (ownerEmail) {
+      recipients.push(ownerEmail);
+      functions.logger.log('👤 Added project owner to recipients:', ownerEmail);
+    }
+  }
+
+  // Emails de los usuarios asignados
+  // Soporte para assigneeIds (array) y assignedTo (legacy)
+  const assigneeIds: string[] = [];
+  
+  if (Array.isArray(task.assigneeIds)) {
+    assigneeIds.push(...task.assigneeIds);
+  } else if (task.assignedTo) {
+    // Legacy support
+    if (typeof task.assignedTo === 'string') {
+      assigneeIds.push(task.assignedTo);
+    } else if (task.assignedTo.userId) {
+      assigneeIds.push(task.assignedTo.userId);
+    }
+  }
+
+  functions.logger.log('👥 Processing assignees:', assigneeIds);
+
+  for (const assigneeId of assigneeIds) {
+    if (assigneeId) {
+      const assignedEmail = await getUserEmail(assigneeId, db);
+      if (assignedEmail && !recipients.includes(assignedEmail)) {
+        recipients.push(assignedEmail);
+        functions.logger.log('👤 Added assignee to recipients:', assignedEmail);
+      }
+    }
+  }
+
+  if (recipients.length === 0) {
+    functions.logger.warn('⚠️ No valid recipients found for comment notification');
+    functions.logger.log('Debug info:', {
+      projectOwnerId: project.ownerId,
+      commentUserId: comment.userId,
+      assigneeIds: assigneeIds,
+      taskAssigneeIds: task.assigneeIds
+    });
+    return;
+  }
+
+  // Enviar correo
+  try {
+    const subject = `Nuevo comentario en: ${task.title || 'Tarea'} - ${project.name}`;
+    const body = buildCommentNotificationEmail(comment, task, project, commenterName);
+    
+    functions.logger.log(`📧 Sending comment notification to ${recipients.length} recipient(s):`, recipients.join(', '));
+    
+    await sendEmail(accessToken, recipients, subject, body);
+    
+    functions.logger.log('✅ Comment notification email sent successfully');
+  } catch (err) {
+    functions.logger.error('❌ Failed to send comment notification email:', err);
+  }
+}
+
+/**
+ * Trigger: Se ejecuta cuando se crea un nuevo comentario (base de datos por defecto)
+ */
+export const onCommentCreated = functions.database
+  .ref('/comments/{commentId}')
+  .onCreate(async (snapshot, context) => {
+    const comment = snapshot.val();
+    await processCommentNotification(comment, admin.database());
+    return null;
+  });
+
+/**
+ * Trigger: Se ejecuta cuando se crea un nuevo comentario en CCCR
+ */
+export const onCommentCreated_CCCR = functions.database
+  .instance('gh-proyectos-cccr')
+  .ref('/comments/{commentId}')
+  .onCreate(async (snapshot, context) => {
+    const comment = snapshot.val();
+    const dbUrl = 'https://gh-proyectos-cccr.firebaseio.com';
+    await processCommentNotification(comment, admin.app().database(dbUrl));
+    return null;
+  });
+
+/**
+ * Trigger: Se ejecuta cuando se crea un nuevo comentario en CCCI
+ */
+export const onCommentCreated_CCCI = functions.database
+  .instance('gh-proyectos-ccci')
+  .ref('/comments/{commentId}')
+  .onCreate(async (snapshot, context) => {
+    const comment = snapshot.val();
+    const dbUrl = 'https://gh-proyectos-ccci.firebaseio.com';
+    await processCommentNotification(comment, admin.app().database(dbUrl));
+    return null;
+  });
+
+/**
+ * Trigger: Se ejecuta cuando se crea un nuevo comentario en CEVP
+ */
+export const onCommentCreated_CEVP = functions.database
+  .instance('gh-proyectos-cevp')
+  .ref('/comments/{commentId}')
+  .onCreate(async (snapshot, context) => {
+    const comment = snapshot.val();
+    const dbUrl = 'https://gh-proyectos-cevp.firebaseio.com';
+    await processCommentNotification(comment, admin.app().database(dbUrl));
     return null;
   });
 
@@ -443,9 +819,38 @@ export const sendTestEmail = functions.https.onCall(async (data, context) => {
   }
 });
 
-// ============================================================================
-// FUNCIONES DE AUTENTICACIÓN Y VALIDACIÓN
-// ============================================================================
+/**
+ * Normaliza un email extrayendo el dominio real de formatos UPN de Azure AD guest users
+ * Ejemplo: luis.arvizu_costaricacc.com#ext#@cevp.onmicrosoft.com → costaricacc.com
+ */
+function extractRealDomain(email: string): string | null {
+  if (!email) return null;
+
+  const emailLower = email.toLowerCase();
+  
+  // Si no contiene #ext#, es un email normal
+  if (!emailLower.includes('#ext#')) {
+    return emailLower.split('@')[1] || null;
+  }
+
+  // Es un guest UPN: local_domain#ext#@tenant.onmicrosoft.com
+  // Extraer la parte antes de #ext#
+  const marker = '#ext#';
+  const prefix = emailLower.split(marker)[0];
+
+  // Buscar el último _ para separar local_domain
+  const lastUnderscore = prefix.lastIndexOf('_');
+  if (lastUnderscore > 0) {
+    const domain = prefix.slice(lastUnderscore + 1);
+    // Validar que sea un dominio válido (contiene punto)
+    if (domain.includes('.')) {
+      return domain;
+    }
+  }
+
+  // Fallback: intentar extraer del formato estándar
+  return emailLower.split('@')[1] || null;
+}
 
 /**
  * Valida que el usuario tenga acceso al sitio seleccionado basado en su dominio de email
@@ -475,13 +880,16 @@ export const validateSiteAccess = functions.https.onCall(async (data, context) =
     throw new functions.https.HttpsError('invalid-argument', 'Email no proporcionado');
   }
 
-  const emailDomain = loginEmail.split('@')[1]?.toLowerCase();
+  // Extraer el dominio real (manejando UPNs de guest users)
+  const emailDomain = extractRealDomain(loginEmail);
   
-  if (emailDomain !== expectedDomain.toLowerCase()) {
+  functions.logger.log('🔍 Extracted domain:', { loginEmail, emailDomain, expectedDomain });
+  
+  if (!emailDomain || emailDomain !== expectedDomain.toLowerCase()) {
     functions.logger.warn('⚠️ Domain mismatch:', { emailDomain, expectedDomain });
     throw new functions.https.HttpsError(
       'permission-denied',
-      `El dominio ${emailDomain} no está autorizado para el sitio ${site}. Se requiere ${expectedDomain}`
+      `El dominio ${emailDomain || 'desconocido'} no está autorizado para el sitio ${site}. Se requiere ${expectedDomain}`
     );
   }
 
@@ -561,9 +969,6 @@ export const upsertUser = functions.https.onCall(async (data, context) => {
   }
 });
 
-// ============================================================================
-// FUNCIONES ADICIONALES PARA OTRAS INSTANCIAS DE BASE DE DATOS
-// ============================================================================
 
 /**
  * Helper: Procesa la actualización de una tarea y envía notificaciones
@@ -581,14 +986,9 @@ async function processTaskUpdate(
 
   const before = change.before.exists() ? change.before.val() : null;
   const after = change.after.val();
+  const isNewTask = !before;
 
-  // Si es una creación nueva, no notificar (solo notificar en actualizaciones)
-  if (!before) {
-    functions.logger.log('📝 Task created, skipping notification:', taskId);
-    return null;
-  }
-
-  functions.logger.log('📝 Task updated:', taskId);
+  functions.logger.log(`📝 Task ${isNewTask ? 'created' : 'updated'}:`, taskId);
 
   // Verificar que la tarea tenga un proyecto asociado
   if (!after?.projectId) {
@@ -667,14 +1067,17 @@ async function processTaskUpdate(
 
   // Enviar correo
   try {
-    const subject = `Tarea actualizada: ${after.title || 'Sin título'} - ${project.name}`;
+    const action = isNewTask ? 'creada' : 'actualizada';
+    const subject = `Tarea ${action}: ${after.title || 'Sin título'} - ${project.name}`;
     const body = buildTaskUpdateEmail(after, project, ownerName, assignedUserName);
+    
+    functions.logger.log(`📧 Sending email to ${recipients.length} recipient(s):`, recipients.join(', '));
     
     await sendEmail(accessToken, recipients, subject, body);
     
-    functions.logger.log('✅ Task update email sent to:', recipients.join(', '));
+    functions.logger.log(`✅ Task ${action} email sent successfully to:`, recipients.join(', '));
   } catch (err) {
-    functions.logger.error('❌ Failed to send task update email:', err);
+    functions.logger.error('❌ Failed to send task email:', err);
   }
 
   return null;

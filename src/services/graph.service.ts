@@ -29,7 +29,18 @@ async function getAuthenticatedClient(): Promise<Client> {
 export async function getUserProfile() {
   try {
     const client = await getAuthenticatedClient();
-    const user = await client.api('/me').get();
+    // Solicitar campos adicionales incluyendo otherMails para usuarios invitados
+    const user = await client.api('/me')
+      .select('id,displayName,mail,userPrincipalName,otherMails,givenName,surname')
+      .get();
+    
+    // Log para debugging
+    console.log('[getUserProfile] Graph API response:', {
+      mail: user.mail,
+      userPrincipalName: user.userPrincipalName,
+      otherMails: user.otherMails,
+    });
+    
     return user;
   } catch (error) {
     console.error('Error getting user profile:', error);

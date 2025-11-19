@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Email Firebase Function</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+</head>
+<body>
+  <h1>Test Email Function</h1>
+  <button onclick="testEmail()">Enviar Email de Prueba</button>
+  <div id="result"></div>
+
+  <script>
+    // Configuración de Firebase (usa tus valores del .env)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBKIUPT2Vj1HJwpXqJNUoFrm-oHF4EQCOI",
+      authDomain: "gh-proyectos.firebaseapp.com",
+      databaseURL: "https://gh-proyectos-default-rtdb.firebaseio.com",
+      projectId: "gh-proyectos",
+      storageBucket: "gh-proyectos.firebasestorage.app",
+      messagingSenderId: "404706397791",
+      appId: "1:404706397791:web:41b5a3fbbe41e4a74f4fc6"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const functions = firebase.functions();
+    functions.useEmulator('localhost', 5001); // Comentar esta línea si quieres probar en producción
+
+    async function testEmail() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = 'Enviando...';
+      
+      try {
+        // Primero autenticar
+        const email = prompt('Email para autenticar:');
+        const password = prompt('Password:');
+        
+        await firebase.auth().signInWithEmailAndPassword(email, password);
+        
+        // Llamar a la función
+        const sendTestEmail = functions.httpsCallable('sendTestEmail');
+        const result = await sendTestEmail({
+          to: email,
+          subject: 'Test desde HTML',
+          body: 'Este es un correo de prueba desde la función'
+        });
+        
+        resultDiv.innerHTML = `✅ Email enviado: ${JSON.stringify(result.data)}`;
+      } catch (error) {
+        resultDiv.innerHTML = `❌ Error: ${error.message}`;
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+</html>

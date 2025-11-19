@@ -69,14 +69,22 @@ export function getDatabaseForSite(site: SiteKey): Database {
  */
 export function resolveDatabase(): Database {
   try {
-    if (typeof window === 'undefined') return database;
+    if (typeof window === 'undefined') {
+      console.log('[resolveDatabase] Server-side, using default database');
+      return database;
+    }
     const s = localStorage.getItem('selectedSite') as SiteKey | null;
+    console.log('[resolveDatabase] Selected site from localStorage:', s);
+    
     if (s && DATABASE_URLS[s]) {
+      const dbUrl = DATABASE_URLS[s];
+      console.log('[resolveDatabase] Using database for site:', s, 'URL:', dbUrl);
       return getDatabaseForSite(s);
     }
+    console.log('[resolveDatabase] No valid site selected, using default database');
   } catch (err) {
     // Si falla por cualquier motivo (e.g., acceso a localStorage en entorno protegido), usar por defecto
-    console.warn('resolveDatabase: could not read selectedSite from localStorage, falling back to default database', err);
+    console.warn('[resolveDatabase] Error reading selectedSite from localStorage, falling back to default database', err);
   }
   return database;
 }
