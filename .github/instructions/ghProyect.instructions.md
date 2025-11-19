@@ -4,6 +4,7 @@ applyTo: '**/*.ts'
 # Instrucciones de uso para el proyecto
 
 - Utiliza siempre pnpm.
+- simplifica las opciones lo más que puedas en las respuestas, para que no sea tanto texto.
 - Piensa profundamente en cada cambio que vayas a realizar.
 - No uses tanto texto en tus respuestas y opciones sino que sé más conciso.
 - Pregunta antes de subir cualquier cambio a github.

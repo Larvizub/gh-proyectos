@@ -415,6 +415,15 @@ export const usersService = {
     });
     return users;
   },
+  // Invite an email address to the platform (creates an invitation record)
+  invite: async (email: string) => {
+  const dbToUse = resolveDatabase();
+  const invitesRef = ref(dbToUse, 'admin/invitations');
+    const newRef = push(invitesRef);
+    const payload = { id: newRef.key, email: String(email).toLowerCase(), createdAt: Date.now(), status: 'pending' } as any;
+    await set(newRef, payload);
+    return payload;
+  },
   delete: async (userId: string) => {
   const dbToUse = resolveDatabase();
   const userRef = ref(dbToUse, `users/${userId}`);

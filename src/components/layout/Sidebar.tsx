@@ -43,9 +43,10 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
   return (
     <>
       {/* Mobile drawer */}
-      <div className={cn('md:hidden', isOpen ? 'fixed inset-0 z-50' : 'hidden')}>
-        <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-        <aside className={cn('absolute left-0 top-0 h-full w-64 border-r bg-background p-3') }>
+      <div className={cn('md:hidden fixed inset-0 z-50 pointer-events-none', !isOpen && 'opacity-0') } aria-hidden={!isOpen}
+           >
+        <div className={cn('absolute inset-0 bg-black/40 transition-opacity duration-200', isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')} onClick={onClose} />
+        <aside className={cn('absolute left-0 top-0 h-full w-64 border-r bg-background p-3 transition-transform duration-200', isOpen ? 'translate-x-0' : '-translate-x-full')}>
           <nav className="flex h-full flex-col justify-between">
             <div>
               <div className="flex items-center gap-3 mb-3">

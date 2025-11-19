@@ -1,4 +1,4 @@
-import { useState, memo, useCallback, cloneElement } from 'react';
+import { useState, memo, useCallback, cloneElement, useEffect } from 'react';
 import { Task, TaskStatus } from '@/types';
 import { TaskCard } from './TaskCard';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
@@ -70,6 +70,18 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, onTaskClick, onD
 
 export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDelete }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth >= 1024;
+  });
+
+  useEffect(() => {
+    function handleResize() {
+      setIsDesktop(window.innerWidth >= 1024);
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Límite de tareas visibles por columna para rendimiento
   const MAX_TASKS_PER_COLUMN = PERFORMANCE_LIMITS.MAX_TASKS_PER_KANBAN_COLUMN;
@@ -181,13 +193,59 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDele
 
   const getTasksByStatus = useCallback((status: TaskStatus) => {
     const filtered = tasks.filter(task => task.status === status);
-    // Retornar solo las primeras MAX_TASKS_PER_COLUMN para rendimiento
     return filtered.slice(0, MAX_TASKS_PER_COLUMN);
   }, [tasks]);
-  
+
   const getTasksCount = useCallback((status: TaskStatus) => {
     return tasks.filter(task => task.status === status).length;
   }, [tasks]);
+
+  if (!isDesktop) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 h-full">
+        {COLUMNS.map((column) => {
+          const columnTasks = getTasksByStatus(column.id);
+          const totalCount = getTasksCount(column.id);
+          const hasMore = totalCount > MAX_TASKS_PER_COLUMN;
+          return (
+            <div key={column.id} className="flex flex-col">
+              <Card className={`flex-1 flex flex-col ${column.bgColor} border-2 shadow-sm transition-shadow hover:shadow-md`}>
+                <CardHeader className="pb-3 border-b-2 border-border/50">
+                  <CardTitle className={`text-base font-bold flex items-center justify-between ${column.color}`}>
+                    <span className="flex items-center gap-2">
+                      <span className="text-xl text-current">{column.icon}</span>
+                      {column.label}
+                    </span>
+                    <span className="text-sm bg-background/80 backdrop-blur-sm rounded-full px-3 py-1 font-semibold shadow-sm">
+                      {columnTasks.length}
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <div className="flex-1 flex flex-col gap-3 px-3 pb-4 pt-3">
+                  {columnTasks.map((task) => (
+                    <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} onDelete={() => onTaskDelete && onTaskDelete(task.id)} />
+                  ))}
+                  {columnTasks.length === 0 && (
+                    <div className="text-center text-sm text-muted-foreground py-12 px-4">
+                      <div className="mb-2 opacity-30">
+                        {cloneElement(column.icon as any, { className: 'h-12 w-12 mx-auto' })}
+                      </div>
+                      <p className="font-medium">No hay tareas</p>
+                    </div>
+                  )}
+                </div>
+              </Card>
+              {hasMore && (
+                <div className="mt-2 text-center text-sm text-muted-foreground">
+                  Mostrando {columnTasks.length} de {totalCount} tareas
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <DndContext

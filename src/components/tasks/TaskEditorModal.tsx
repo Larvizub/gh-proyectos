@@ -28,11 +28,11 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
   const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
   const [projectOwners, setProjectOwners] = useState<string[] | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [openTags, setOpenTags] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(Date.now());
+  const [assigneeInput, setAssigneeInput] = useState('');
+  const [tagInput, setTagInput] = useState('');
   const { user } = useAuth();
-  const [openAssignees, setOpenAssignees] = useState(false);
   
   // Estado inicial para detectar cambios
   const [initialState, setInitialState] = useState<{
@@ -216,8 +216,10 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     return false;
   })();
 
+  const { hasModulePermission } = useAuth();
   const isProjectOwner = projectOwnerId === currentUserId || (projectOwners && projectOwners.includes(currentUserId || ''));
-  const canEdit = Boolean(isProjectOwner || isAssigned);
+  const roleAllowsEdit = hasModulePermission ? hasModulePermission('tasks', 'interact') : true;
+  const canEdit = Boolean(isProjectOwner || isAssigned) && roleAllowsEdit;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
@@ -263,8 +265,8 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
               </div>
             </div>
 
-            <div>
-              <label className="text-sm font-medium">Asignar a</label>
+              <div>
+                <label className="text-sm font-medium">Asignar a</label>
                 <div className="mt-2">
                   <div className="flex flex-wrap gap-2 mb-2">
                     {selectedAssignees.length === 0 ? (
@@ -287,31 +289,30 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
                     )}
                   </div>
 
-                  <div className="relative">
-                    <button type="button" className="w-full rounded-md border border-input bg-input px-3 py-2 text-left text-sm text-foreground shadow-sm flex items-center justify-between" onClick={() => setOpenAssignees(prev => !prev)} disabled={!canEdit}>
-                      <span className="truncate">{selectedAssignees.length === 0 ? 'Añadir asignados…' : 'Añadir más'}</span>
-                      <svg className="h-4 w-4 text-muted-foreground ml-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                        <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
-                      </svg>
-                    </button>
-                    {openAssignees && (
-                      <div className="absolute z-50 mt-1 w-full max-h-56 overflow-auto rounded-md bg-popover shadow-lg ring-1 ring-black/10 p-2">
-                        <div className="flex flex-col gap-1">
-                          {users.map(u => (
-                            <label key={u.id} className="inline-flex items-center gap-2 px-2 py-1 rounded hover:bg-muted text-sm">
-                                <input type="checkbox" checked={selectedAssignees.includes(u.id)} onChange={(e) => {
-                                  if (!canEdit) return;
-                                  setSelectedAssignees(prev => e.target.checked ? [...prev, u.id] : prev.filter(id => id !== u.id));
-                                }} />
-                                <span>{u.displayName || u.email}</span>
-                              </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  <div className="flex gap-2">
+                    <input list="assignees-list" value={assigneeInput} onChange={e => setAssigneeInput(e.target.value)} placeholder={selectedAssignees.length === 0 ? 'Añadir asignado por nombre o email' : 'Añadir más...'} className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+                    <button type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground" onClick={() => {
+                      if (!canEdit) return;
+                      const val = (assigneeInput || '').trim();
+                      if (!val) return;
+                      const found = users.find(u => (u.email || '').toLowerCase() === val.toLowerCase() || (u.displayName || '').toLowerCase() === val.toLowerCase());
+                      if (found) {
+                        setSelectedAssignees(prev => prev.includes(found.id) ? prev : [...prev, found.id]);
+                        setAssigneeInput('');
+                      } else {
+                        const partial = users.find(u => (u.displayName || '').toLowerCase().includes(val.toLowerCase()) || (u.email || '').toLowerCase().includes(val.toLowerCase()));
+                        if (partial) {
+                          setSelectedAssignees(prev => prev.includes(partial.id) ? prev : [...prev, partial.id]);
+                          setAssigneeInput('');
+                        }
+                      }
+                    }}>Añadir</button>
                   </div>
+                  <datalist id="assignees-list">
+                    {users.map(u => <option key={u.id} value={u.email || u.id}>{u.displayName || u.email}</option>)}
+                  </datalist>
                 </div>
-            </div>
+              </div>
 
             <div>
               <label className="text-sm font-medium">Tags del proyecto</label>
@@ -330,28 +331,25 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
                     </div>
 
                     <div className="relative">
-                      <button type="button" className="w-full rounded-md border border-input bg-input px-3 py-2 text-left text-sm text-foreground shadow-sm flex items-center justify-between" onClick={() => setOpenTags(prev => !prev)}>
-                        <span className="truncate">{selectedTags.length === 0 ? 'Añadir tags…' : 'Modificar tags'}</span>
-                        <svg className="h-4 w-4 text-muted-foreground ml-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                          <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
-                        </svg>
-                      </button>
-                      {openTags && (
-                        <div className="absolute z-50 mt-1 w-full max-h-56 overflow-auto rounded-md bg-popover shadow-lg ring-1 ring-black/10 p-2">
-                          <div className="flex flex-col gap-1">
-                            {projectTags.length === 0 ? (
-                              <div className="p-2 text-sm text-muted-foreground">Este proyecto no tiene tags definidos.</div>
-                            ) : projectTags.map(tag => (
-                              <label key={tag} className="inline-flex items-center gap-2 px-2 py-1 rounded hover:bg-muted text-sm">
-                                <input type="checkbox" checked={selectedTags.includes(tag)} onChange={(e) => {
-                                  setSelectedTags(prev => e.target.checked ? [...prev, tag] : prev.filter(x => x !== tag));
-                                }} />
-                                <span>{tag}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      <div className="flex gap-2">
+                        <input list="project-tags-list" value={tagInput} onChange={e => setTagInput(e.target.value)} placeholder={selectedTags.length === 0 ? 'Añadir tag del proyecto' : 'Añadir más tags...'} className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+                        <button type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground" onClick={() => {
+                          if (!canEdit) return;
+                          const raw = (tagInput || '').trim();
+                          if (!raw) return;
+                          // buscar coincidencia case-insensitive en projectTags
+                          const match = projectTags.find(pt => pt.toLowerCase() === raw.toLowerCase());
+                          if (!match) {
+                            toast.error('Tag no válido. Selecciona uno de la lista del proyecto');
+                            return;
+                          }
+                          if (!selectedTags.includes(match)) setSelectedTags(prev => [...prev, match]);
+                          setTagInput('');
+                        }}>Añadir</button>
+                      </div>
+                      <datalist id="project-tags-list">
+                        {projectTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                      </datalist>
                     </div>
                   </div>
             </div>

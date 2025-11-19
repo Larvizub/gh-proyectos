@@ -820,6 +820,80 @@ export const sendTestEmail = functions.https.onCall(async (data, context) => {
 });
 
 /**
+ * Callable: Invita por email a direcciones no registradas y/o notifica por correo a ownerIds
+ * Data: { dbUrl?: string, ownerIds?: string[], inviteEmails?: string[], projectId?: string, projectName?: string, inviterId?: string }
+ */
+export const inviteOrNotifyOwners = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const { dbUrl, ownerIds = [], inviteEmails = [], projectId, projectName, inviterId } = data || {};
+
+  const db = dbUrl ? admin.app().database(dbUrl) : admin.database();
+
+  // Create invitation records for inviteEmails
+  const createdInvites: any[] = [];
+  try {
+    for (const emailRaw of inviteEmails || []) {
+      const email = String(emailRaw || '').toLowerCase().trim();
+      if (!email) continue;
+      const newRef = db.ref('admin/invitations').push();
+      const payload = { id: newRef.key, email, projectId: projectId || null, invitedBy: inviterId || (context.auth.uid || null), createdAt: Date.now(), status: 'pending' };
+      await newRef.set(payload);
+      createdInvites.push(payload);
+    }
+  } catch (err) {
+    functions.logger.error('Error creating invitations', err);
+    // don't fail hard; continue to attempt emails
+  }
+
+  // Resolve owner emails from ownerIds
+  const recipientEmails: string[] = [];
+  try {
+    for (const oid of ownerIds || []) {
+      try {
+        const e = await getUserEmail(oid, db);
+        if (e && !recipientEmails.includes(e)) recipientEmails.push(e);
+      } catch (err) {
+        functions.logger.warn('Failed to resolve email for ownerId', oid, err);
+      }
+    }
+  } catch (err) {
+    functions.logger.error('Error resolving owner emails', err);
+  }
+
+  // Include explicit inviteEmails as recipients so invites also receive email if desired
+  for (const ie of inviteEmails || []) {
+    const em = String(ie || '').toLowerCase().trim();
+    if (em && !recipientEmails.includes(em)) recipientEmails.push(em);
+  }
+
+  // Send email via Graph if possible
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    functions.logger.warn('No access token available; skipping email send');
+    return { success: true, invites: createdInvites, recipients: recipientEmails, emailed: false };
+  }
+
+  if (recipientEmails.length === 0) {
+    functions.logger.log('No recipient emails to send');
+    return { success: true, invites: createdInvites, recipients: [], emailed: false };
+  }
+
+  try {
+    const subject = projectName ? `Has sido asignado como propietario: ${projectName}` : `Has sido asignado como propietario de un proyecto`;
+    const body = `<p>Hola,</p><p>Has sido agregado como propietario del proyecto <strong>${escapeHtml(projectName || 'Sin título')}</strong>.</p><p>Ingresa a la plataforma para ver los detalles.</p>`;
+    await sendEmail(accessToken, recipientEmails, subject, body);
+    functions.logger.log('inviteOrNotifyOwners: email sent to', recipientEmails.join(', '));
+    return { success: true, invites: createdInvites, recipients: recipientEmails, emailed: true };
+  } catch (err: any) {
+    functions.logger.error('inviteOrNotifyOwners: failed to send email', err);
+    return { success: false, invites: createdInvites, recipients: recipientEmails, emailed: false, error: err?.message || String(err) };
+  }
+});
+
+/**
  * Normaliza un email extrayendo el dominio real de formatos UPN de Azure AD guest users
  * Ejemplo: luis.arvizu_costaricacc.com#ext#@cevp.onmicrosoft.com → costaricacc.com
  */

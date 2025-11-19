@@ -76,8 +76,8 @@ export default function RoleCard({ role, onSaved, onDeleted }: Props) {
             <div key={m.key} className="flex items-center justify-between gap-4 p-2 border rounded">
               <div className="font-medium">{m.label}</div>
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2"><Checkbox checked={!!state.observe} onCheckedChange={() => toggleModule(m.key, 'observe')} /> <span className="text-sm">Observar</span></label>
-                <label className="flex items-center gap-2"><Checkbox checked={!!state.interact} onCheckedChange={() => toggleModule(m.key, 'interact')} /> <span className="text-sm">Interactuar</span></label>
+                <label className="flex items-center gap-2"><Checkbox checked={!!state.observe} onCheckedChange={() => toggleModule(m.key, 'observe')} /> <span className="text-sm">Ver</span></label>
+                <label className="flex items-center gap-2"><Checkbox checked={!!state.interact} onCheckedChange={() => toggleModule(m.key, 'interact')} /> <span className="text-sm">Editar</span></label>
               </div>
             </div>
           );

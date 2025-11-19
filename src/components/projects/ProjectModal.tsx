@@ -4,7 +4,11 @@ import Select from '@/components/ui/select';
 import ColorPickerButton from '@/components/ui/ColorPickerButton';
 import { CheckCircle, Calendar, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { usersService } from '@/services/firebase.service';
+import { usersService, notificationsService } from '@/services/firebase.service';
+import { toast } from 'sonner';
+import { functions as cloudFunctions, DATABASE_URLS } from '@/config/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { useAuth } from '@/contexts/AuthContext';
 import { User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Project } from '@/types';
@@ -26,6 +30,9 @@ export default function ProjectModal({ open, onClose, onSave, initial }: Props) 
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [ownerIds, setOwnerIds] = useState<string[]>([]);
+  const [userPickerValue, setUserPickerValue] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
     if (initial) {
@@ -145,24 +152,50 @@ export default function ProjectModal({ open, onClose, onSave, initial }: Props) 
                 </div>
 
                 <div className="relative">
-                  <button type="button" className="w-full rounded-md border border-input bg-input px-3 py-2 text-left text-sm text-foreground shadow-sm flex items-center justify-between" onClick={() => {
-                    // toggle simple owner picker (show a browser prompt for quick add by email or id)
-                    const emailOrId = prompt('Añadir propietario por correo o id de usuario');
-                    if (!emailOrId) return;
-                    // try to resolve by email
-                    const found = users.find(u => u.email.toLowerCase() === emailOrId.toLowerCase());
-                    if (found) {
-                      setOwnerIds(prev => prev.includes(found.id) ? prev : [...prev, found.id]);
-                    } else {
-                      // fallback to adding raw value (expecting id)
-                      setOwnerIds(prev => prev.includes(emailOrId) ? prev : [...prev, emailOrId]);
-                    }
-                  }}>
-                    <span className="truncate">Añadir propietario…</span>
-                    <svg className="h-4 w-4 text-muted-foreground ml-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                      <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
-                    </svg>
-                  </button>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <input list="users-list" value={userPickerValue} onChange={(e) => setUserPickerValue(e.target.value)} placeholder="Buscar usuario por nombre o email" className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+                      <button type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground" onClick={() => {
+                        if (!userPickerValue) return;
+                        const found = users.find(u => (u.email || '').toLowerCase() === userPickerValue.toLowerCase() || (u.displayName || '').toLowerCase().includes(userPickerValue.toLowerCase()));
+                        if (found) {
+                          setOwnerIds(prev => prev.includes(found.id) ? prev : [...prev, found.id]);
+                          setUserPickerValue('');
+                        } else {
+                          toast.error('Usuario no encontrado. Usa el campo de invitación si quieres invitar por email.');
+                        }
+                      }}>Añadir</button>
+                    </div>
+                    <datalist id="users-list">
+                      {users.map(u => <option key={u.id} value={u.email || u.id}>{u.displayName || u.email}</option>)}
+                    </datalist>
+
+                    <div className="flex gap-2">
+                      <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="Invitar por email (usuario no registrado)" className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+                      <button type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-600 text-white" onClick={async () => {
+                        const email = String(inviteEmail || '').trim();
+                        if (!email) return toast.error('Introduce un email válido');
+                        try {
+                          // Call backend callable to create invitation and send email
+                          const rawKey = (typeof window !== 'undefined' ? localStorage.getItem('selectedSite') : null);
+                          let siteDbUrl: string | undefined;
+                          if (rawKey && (rawKey in DATABASE_URLS)) {
+                            siteDbUrl = DATABASE_URLS[rawKey as keyof typeof DATABASE_URLS as any as import('@/config/firebase').SiteKey];
+                          } else {
+                            siteDbUrl = undefined;
+                          }
+                          const fn = httpsCallable(cloudFunctions as any, 'inviteOrNotifyOwners');
+                          await fn({ dbUrl: siteDbUrl, inviteEmails: [email], projectId: initial?.id || null, projectName: name.trim(), inviterId: user?.id || null });
+                          toast.success('Invitación creada y (si está configurado) enviada por correo');
+                          setInviteEmail('');
+                        } catch (err) {
+                          console.error('Invite failed', err);
+                          // fallback: create invite record locally
+                          try { await usersService.invite(email); toast.success('Invitación creada (fallback)'); setInviteEmail(''); } catch (e) { toast.error('No se pudo crear la invitación'); }
+                        }
+                      }}>Invitar</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -184,6 +217,31 @@ export default function ProjectModal({ open, onClose, onSave, initial }: Props) 
                     if (ownerIds.length > 0) payload.ownerId = ownerIds[0];
                     await onSave(payload);
                   }
+                  // Notify owners via notificationsService and try sending email via Graph when possible
+                  try {
+                    if (ownerIds && ownerIds.length > 0) {
+                      // Create DB notifications for owners
+                      await notificationsService.createForUsers(ownerIds, { type: 'project-owner-assigned', title: `Has sido asignado como propietario del proyecto ${name.trim()}`, message: `Has sido agregado como propietario del proyecto '${name.trim()}'`, relatedId: payload.id || null });
+
+                      // Call backend callable to send emails and create invitations if needed
+                      try {
+                        const rawDbKey = (typeof window !== 'undefined') ? localStorage.getItem('selectedSite') : null;
+                        let dbUrl: string | undefined;
+                        if (rawDbKey && (rawDbKey in DATABASE_URLS)) {
+                          dbUrl = DATABASE_URLS[rawDbKey as keyof typeof DATABASE_URLS as any as import('@/config/firebase').SiteKey];
+                        } else {
+                          dbUrl = undefined;
+                        }
+                        const fn = httpsCallable(cloudFunctions as any, 'inviteOrNotifyOwners');
+                        await fn({ dbUrl, ownerIds, projectId: payload.id || initial?.id || null, projectName: name.trim(), inviterId: user?.id || null });
+                      } catch (err) {
+                        console.warn('Backend callable inviteOrNotifyOwners failed', err);
+                      }
+                    }
+                  } catch (err) {
+                    console.warn('Failed to notify owners', err);
+                  }
+
                   onClose();
                 } catch (err) {
                   console.error('Failed to save project', err);

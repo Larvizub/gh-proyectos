@@ -72,8 +72,8 @@ export default function RoleModal({ open, onClose, onSave, initial }: Props) {
               <div key={m.key} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 border rounded">
                 <div className="font-medium text-sm sm:text-base">{m.label}</div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="flex items-center gap-2 whitespace-nowrap"><Checkbox checked={!!state.observe} onCheckedChange={() => toggleModule(m.key, 'observe')} /> <span className="text-sm">Observar</span></label>
-                  <label className="flex items-center gap-2 whitespace-nowrap"><Checkbox checked={!!state.interact} onCheckedChange={() => toggleModule(m.key, 'interact')} /> <span className="text-sm">Interactuar</span></label>
+                  <label className="flex items-center gap-2 whitespace-nowrap"><Checkbox checked={!!state.observe} onCheckedChange={() => toggleModule(m.key, 'observe')} /> <span className="text-sm">Ver</span></label>
+                  <label className="flex items-center gap-2 whitespace-nowrap"><Checkbox checked={!!state.interact} onCheckedChange={() => toggleModule(m.key, 'interact')} /> <span className="text-sm">Editar</span></label>
                 </div>
               </div>
             );

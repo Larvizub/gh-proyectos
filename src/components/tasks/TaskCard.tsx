@@ -70,7 +70,7 @@ const priorityConfig: Record<TaskPriority, { label: string; className: string }>
 
 function TaskCardComponent({ task, onClick, onDelete }: TaskCardProps) {
   const { usersMap } = useUsers();
-  const { user } = useAuth();
+  const { user, hasModulePermission } = useAuth();
   const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
   const [projectOwners, setProjectOwners] = useState<string[] | null>(null);
   const [canEdit, setCanEdit] = useState(false);
@@ -117,7 +117,8 @@ function TaskCardComponent({ task, onClick, onDelete }: TaskCardProps) {
     }
 
     const ownerMatch = projectOwnerId === uid || (projectOwners && projectOwners.includes(uid));
-    setCanEdit(ownerMatch || assigned);
+    const roleAllowsEdit = hasModulePermission ? hasModulePermission('tasks', 'interact') : true;
+    setCanEdit((ownerMatch || assigned) && roleAllowsEdit);
   }, [user?.id, user?.email, projectOwnerId, projectOwners, task]);
 
   // normalize and validate dueDate (could be number, string, or invalid)

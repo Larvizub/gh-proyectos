@@ -5,6 +5,7 @@ import { Database } from "firebase/database";
 import { auth, functions, getDatabaseForSite, SiteKey, DATABASE_URLS } from "@/config/firebase";
 import { httpsCallable } from 'firebase/functions';
 import { User } from "@/types";
+import { rolesService, Role } from '@/services/firebase.service';
 import { ref, get, set, update as dbUpdate, onValue, off } from 'firebase/database';
 
 interface AuthContextType {
@@ -15,6 +16,7 @@ interface AuthContextType {
   selectedSite: SiteKey;
   database: Database;
   signOut: () => Promise<void>;
+  hasModulePermission: (moduleKey: string, action: 'observe' | 'interact') => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +24,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [roleDoc, setRoleDoc] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSite, setSelectedSite] = useState<SiteKey>(() => {
     const s = typeof window !== "undefined" ? localStorage.getItem("selectedSite") : null;
@@ -199,6 +202,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try { if (userListenerUnsub) userListenerUnsub(); } catch (e) {}
     };
   }, [selectedSite]);
+
+  // Load role document for current user if role is a roleId (not 'admin'|'user')
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const roleKey = user?.role as string | undefined;
+        if (!roleKey || roleKey === 'admin' || roleKey === 'user') {
+          if (mounted) setRoleDoc(null);
+          return;
+        }
+        const r = await rolesService.get(roleKey);
+        if (mounted) setRoleDoc(r);
+      } catch (err) {
+        if (mounted) setRoleDoc(null);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [user?.role, selectedSite]);
+
+  function hasModulePermission(moduleKey: string, action: 'observe' | 'interact') {
+    if (user?.role === 'admin') return true;
+    if (roleDoc) {
+      const mods = roleDoc.modules || {};
+      if (!mods[moduleKey]) return false;
+      return Boolean(mods[moduleKey][action]);
+    }
+    // Legacy behavior: if no role doc, allow (preserve current app behavior)
+    return true;
+  }
 
   const signInWithMicrosoft = async (site: SiteKey) => {
     try {
@@ -435,7 +468,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading, signInWithMicrosoft, selectedSite, database, signOut }}>
+    <AuthContext.Provider value={{ user, firebaseUser, loading, signInWithMicrosoft, selectedSite, database, signOut, hasModulePermission }}>
       {children}
     </AuthContext.Provider>
   );
