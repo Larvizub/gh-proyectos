@@ -510,3 +510,46 @@ export const rolesService = {
     return snapshot.exists() ? snapshot.val() : null;
   }
 };
+
+// Externos (lista de correos que pueden omitir restricción por dominio)
+export const externalsService = {
+  path: 'admin/externos',
+
+  getAll: async (): Promise<Array<{ id: string; email: string; createdAt?: number }>> => {
+    const dbToUse = resolveDatabase();
+    const externalsRef = ref(dbToUse, 'admin/externos');
+    const snapshot = await get(externalsRef);
+    if (!snapshot.exists()) return [];
+    const items: Array<{ id: string; email: string; createdAt?: number }> = [];
+    snapshot.forEach((child) => {
+      items.push(child.val());
+    });
+    return items;
+  },
+
+  add: async (email: string) => {
+    const dbToUse = resolveDatabase();
+    const externalsRef = ref(dbToUse, 'admin/externos');
+    const newRef = push(externalsRef);
+    const payload = { id: newRef.key, email, createdAt: Date.now() };
+    await set(newRef, payload);
+    return payload;
+  },
+
+  remove: async (id: string) => {
+    const dbToUse = resolveDatabase();
+    const itemRef = ref(dbToUse, `admin/externos/${id}`);
+    await remove(itemRef);
+  },
+
+  listen: (callback: (items: Array<{ id: string; email: string; createdAt?: number }>) => void) => {
+    const dbToUse = resolveDatabase();
+    const externalsRef = ref(dbToUse, 'admin/externos');
+    onValue(externalsRef, (snapshot) => {
+      const items: Array<{ id: string; email: string; createdAt?: number }> = [];
+      snapshot.forEach((child) => { items.push(child.val()); });
+      callback(items);
+    });
+    return () => off(externalsRef);
+  }
+};

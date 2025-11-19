@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useState } from 'react';
-import { Home, FolderKanban, Users, User, LogOut, Key } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Home, FolderKanban, Users, User, LogOut, Key, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -32,7 +32,11 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
   const { user, signOut } = useAuth();
   const { theme } = useTheme();
   const isAdmin = !!(user && typeof user.role === 'string' && user.role.toLowerCase() === 'admin');
-  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(isAdmin);
+
+  useEffect(() => {
+    if (isAdmin) setAdminOpen(true);
+  }, [isAdmin]);
 
   const allItems = navigationItems;
 
@@ -80,6 +84,10 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
                           <Key className="h-4 w-4" />
                           <span className="ml-2 whitespace-nowrap">Roles</span>
                         </Link>
+                          <Link to="/admin/externos" className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium', location.pathname === '/admin/externos' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground')}>
+                            <Globe className="h-4 w-4" />
+                            <span className="ml-2 whitespace-nowrap">Externos</span>
+                          </Link>
                       </div>
                     ) : null}
                   </div>
@@ -156,6 +164,10 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
                     <Link to="/admin/roles" className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all justify-center group-hover:justify-start overflow-hidden', location.pathname === '/admin/roles' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground')}>
                       <Key className="h-4 w-4" />
                       <span className="ml-2 hidden group-hover:inline-block whitespace-nowrap">Roles</span>
+                    </Link>
+                    <Link to="/admin/externos" className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all justify-center group-hover:justify-start overflow-hidden', location.pathname === '/admin/externos' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground')}>
+                      <Globe className="h-4 w-4" />
+                      <span className="ml-2 hidden group-hover:inline-block whitespace-nowrap">Externos</span>
                     </Link>
                   </div>
                 ) : null}

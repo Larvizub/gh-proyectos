@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import UsersPage from './pages/UsersPage';
 import RolesPage from './pages/RolesPage';
+import ExternosPage from './pages/admin/ExternosPage';
 import UserProfilePage from './pages/UserProfilePage';
 import NewProjectPage from './pages/NewProjectPage';
 import ProjectDetailsPage from './pages/ProjectDetailsPage';
@@ -53,6 +54,7 @@ function App() {
               <Route path="/admin" element={<Navigate to="/admin/users" />} />
               <Route path="/admin/users" element={<UsersPage />} />
               <Route path="/admin/roles" element={<RolesPage />} />
+              <Route path="/admin/externos" element={<ExternosPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" />} />
