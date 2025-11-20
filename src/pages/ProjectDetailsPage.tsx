@@ -388,7 +388,15 @@ export default function ProjectDetailsPage() {
               toast.error('ID de proyecto faltante');
               return;
             }
-            await projectsService.update(payload.id, { name: payload.name, description: payload.description, color: payload.color });
+            await projectsService.update(payload.id, {
+              name: payload.name,
+              description: payload.description,
+              color: payload.color,
+              status: payload.status,
+              tags: payload.tags,
+              owners: payload.owners,
+              ownerId: payload.ownerId
+            });
             const updated = await projectsService.get(payload.id);
             setProject(updated);
             toast.success('Proyecto actualizado');

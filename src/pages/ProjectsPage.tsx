@@ -203,7 +203,15 @@ export function ProjectsPage() {
           onSave={async (payload: Partial<Project> & { id?: string }) => {
             try {
               if (payload.id) {
-                await projectsService.update(payload.id, { name: payload.name, description: payload.description, color: payload.color, status: payload.status, tags: payload.tags });
+                await projectsService.update(payload.id, {
+                  name: payload.name,
+                  description: payload.description,
+                  color: payload.color,
+                  status: payload.status,
+                  tags: payload.tags,
+                  owners: payload.owners,
+                  ownerId: payload.ownerId
+                });
                 toast.success('Proyecto actualizado');
               } else {
                 if (!user) {
