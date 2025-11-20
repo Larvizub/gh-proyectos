@@ -205,34 +205,36 @@ function TaskCardComponent({ task, onClick, onDelete }: TaskCardProps) {
           )}
         </div>
         
-        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground pt-2 border-t mt-2">
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
             {hasValidDueDate && dueLabel && (
-              <div className={`flex items-center gap-1.5 ${isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : ''}`}>
-                <Calendar className="h-3.5 w-3.5" />
-                <span>
+              <div className={`flex items-center gap-1.5 whitespace-nowrap ${isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : ''}`} title={dueLabel}>
+                <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate max-w-[140px]">
                   {dueLabel}
                 </span>
               </div>
             )}
             
             {assignees.length > 0 && (
-              <div className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5">
-                <User className="h-3.5 w-3.5" />
-                <span className="font-medium truncate max-w-[10rem]">{assignees.map(a => a.displayName || a.email).slice(0,3).join(', ')}</span>
+              <div className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5 max-w-full">
+                <User className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="font-medium truncate max-w-[8rem]">
+                  {assignees.map(a => a.displayName || a.email).slice(0,3).join(', ')}
+                </span>
               </div>
             )}
             
             {attachments.length > 0 && (
               <div className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5">
-                <Paperclip className="h-3.5 w-3.5" />
+                <Paperclip className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="font-medium">{attachments.length}</span>
               </div>
             )}
           </div>
           
           {isOverdue && (
-            <Badge variant="destructive" className="text-xs font-bold shadow-sm">
+            <Badge variant="destructive" className="text-[10px] px-1.5 h-5 font-bold shadow-sm flex-shrink-0">
               ⚠️ Vencida
             </Badge>
           )}

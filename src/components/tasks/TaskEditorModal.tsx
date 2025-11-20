@@ -2,13 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { Task, TaskStatus, User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Calendar } from 'lucide-react';
 import Select from '@/components/ui/select';
 import { tasksService, usersService, projectsService } from '@/services/firebase.service';
 import { toast } from 'sonner';
 import DatePicker from '@/components/ui/DatePicker';
 import { useAuth } from '@/contexts/AuthContext';
 import { TaskComments } from './TaskComments';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Badge } from '@/components/ui/badge';
 
 interface Props {
   task: Task | null;
@@ -221,12 +224,33 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
   const roleAllowsEdit = hasModulePermission ? hasModulePermission('tasks', 'interact') : true;
   const canEdit = Boolean(isProjectOwner || isAssigned) && roleAllowsEdit;
 
+  // Calculate due date status
+  const rawDue = task?.dueDate;
+  const dueDateNum = rawDue == null ? NaN : Number(rawDue);
+  const hasValidDueDate = !isNaN(dueDateNum) && dueDateNum > 0;
+  const dueDateObj = hasValidDueDate ? new Date(dueDateNum) : null;
+  const isOverdue = hasValidDueDate && dueDateNum < Date.now() && task?.status !== 'completed';
+  let dueLabel: string | null = null;
+  if (hasValidDueDate && dueDateObj) {
+    try {
+      dueLabel = formatDistanceToNow(dueDateObj, { addSuffix: true, locale: es });
+    } catch (e) {
+      dueLabel = null;
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <Card className="relative z-50 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <CardHeader className="flex-shrink-0">
+        <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between">
           <CardTitle>Detalle de tarea</CardTitle>
+          {isOverdue && dueLabel && (
+            <Badge variant="destructive" className="flex items-center gap-1.5 px-2 py-1">
+              <Calendar className="h-3.5 w-3.5" />
+              <span className="text-xs font-semibold">Vencida {dueLabel}</span>
+            </Badge>
+          )}
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto p-6">
           <form onSubmit={handleSave} className="space-y-6">
