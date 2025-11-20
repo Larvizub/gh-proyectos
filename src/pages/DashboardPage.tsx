@@ -35,11 +35,11 @@ export function DashboardPage() {
   }, []);
 
   const myProjects = projects.filter(
-    p => p.ownerId === user?.id || p.memberIds.includes(user?.id || '')
+    p => p.ownerId === user?.id || (p.memberIds || []).includes(user?.id || '')
   );
 
   const myTasks = tasks.filter(t => 
-    t.assigneeIds.includes(user?.id || '')
+    (t.assigneeIds || []).includes(user?.id || '')
   );
 
   const completedTasks = myTasks.filter(t => t.status === 'completed');

@@ -1,6 +1,8 @@
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {
@@ -10,6 +12,7 @@ interface HeaderProps {
 
 export function Header({ className, onToggleSidebar }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
+  const { selectedSite } = useAuth();
 
   return (
     <header className={cn(
@@ -40,7 +43,12 @@ export function Header({ className, onToggleSidebar }: HeaderProps) {
         <div className="flex items-center gap-4" />
 
         {/* Botón de tema en la esquina superior derecha */}
-        <div className="absolute right-4 top-3">
+        <div className="absolute right-4 top-3 flex items-center gap-3">
+          <Badge variant="outline" className="hidden md:flex items-center gap-1.5 text-muted-foreground border-muted-foreground/30">
+            <Database className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">{selectedSite}</span>
+          </Badge>
+
           <Button
             variant="ghost"
             size="icon"

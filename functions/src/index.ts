@@ -464,6 +464,49 @@ function buildCommentNotificationEmail(comment: any, task: any, project: any, co
   return getEmailTemplate(content);
 }
 
+function buildProjectOwnerAssignmentEmail(projectName: string, inviterName?: string): string {
+  const safeProjectName = escapeHtml(projectName || 'Proyecto sin nombre');
+  const safeInviterName = escapeHtml(inviterName || 'Un administrador');
+
+  const content = `
+    <div class="email-header">
+      <div class="logo-container">
+        <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+      </div>
+      <h1 class="email-title">Nueva Asignación de Proyecto</h1>
+      <p class="email-subtitle">Has sido añadido como propietario</p>
+    </div>
+    
+    <div class="email-body">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="background-color: #ecfdf5; color: #059669; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+          <span style="font-size: 32px;">👑</span>
+        </div>
+        <h2 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 600; color: #111827;">¡Bienvenido al equipo!</h2>
+        <p style="margin: 0; color: #6b7280; font-size: 16px;">
+          <strong>${safeInviterName}</strong> te ha asignado como propietario del proyecto:
+        </p>
+      </div>
+
+      <div class="info-card" style="text-align: center; padding: 24px;">
+        <h3 style="margin: 0; font-size: 18px; color: #111827;">${safeProjectName}</h3>
+      </div>
+
+      <p style="margin: 24px 0; font-size: 15px; line-height: 1.6; color: #4b5563; text-align: center;">
+        Como propietario, ahora tienes acceso completo para gestionar tareas, invitar miembros y configurar los detalles del proyecto.
+      </p>
+      
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="https://gh-proyectos.web.app/projects" style="background-color: #F2B05F; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 6px -1px rgba(242, 176, 95, 0.4);">
+          Ver Proyecto
+        </a>
+      </div>
+    </div>
+  `;
+
+  return getEmailTemplate(content);
+}
+
 /**
  * Trigger: Se ejecuta cuando se crea un nuevo proyecto
  * Notifica al propietario del proyecto por correo electrónico
@@ -1000,7 +1043,21 @@ export const inviteOrNotifyOwners = functions.https.onCall(async (data, context)
 
   try {
     const subject = projectName ? `Has sido asignado como propietario: ${projectName}` : `Has sido asignado como propietario de un proyecto`;
-    const body = `<p>Hola,</p><p>Has sido agregado como propietario del proyecto <strong>${escapeHtml(projectName || 'Sin título')}</strong>.</p><p>Ingresa a la plataforma para ver los detalles.</p>`;
+    
+    // Intentar obtener el nombre del invitador si existe
+    let inviterName = 'Un administrador';
+    if (inviterId) {
+      try {
+        const inviterSnap = await db.ref(`users/${inviterId}`).once('value');
+        const inviterData = inviterSnap.val();
+        if (inviterData?.displayName) inviterName = inviterData.displayName;
+        else if (inviterData?.email) inviterName = inviterData.email;
+      } catch (e) {
+        // ignore error resolving inviter name
+      }
+    }
+
+    const body = buildProjectOwnerAssignmentEmail(projectName || 'Sin título', inviterName);
     await sendEmail(accessToken, recipientEmails, subject, body);
     functions.logger.log('inviteOrNotifyOwners: email sent to', recipientEmails.join(', '));
     return { success: true, invites: createdInvites, recipients: recipientEmails, emailed: true };

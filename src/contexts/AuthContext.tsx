@@ -97,6 +97,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
+
+        // --- VALIDACIÓN DE ACCESO AL SITIO ---
+        // Verificar explícitamente si el usuario tiene permiso para el sitio actual antes de establecer la sesión.
+        // Esto previene que LoginPage redirija al dashboard si el usuario no tiene permisos.
+        try {
+          const currentSiteToCheck = (typeof window !== 'undefined' && localStorage.getItem('selectedSite')) as SiteKey | null || selectedSite;
+          // Solo validar si hay un sitio seleccionado
+          if (currentSiteToCheck) {
+            const validateFn = httpsCallable(functions, 'validateSiteAccess');
+            const validationResp: any = await validateFn({ site: currentSiteToCheck, loginEmail: userData.email });
+            
+            if (!(validationResp?.data?.success || validationResp?.success)) {
+              console.warn(`[AuthContext] Acceso denegado a ${currentSiteToCheck} para ${userData.email}. Cerrando sesión.`);
+              await firebaseSignOut(auth);
+              if (mounted) {
+                setFirebaseUser(null);
+                setUser(null);
+                setLoading(false);
+              }
+              // Lanzar un evento o toast podría ser complicado aquí ya que estamos en un listener,
+              // pero el flujo de login manual (signInWithMicrosoft) capturará su propio error.
+              return;
+            }
+            console.log(`[AuthContext] Acceso validado correctamente para ${currentSiteToCheck}`);
+          }
+        } catch (validationErr) {
+          console.error('[AuthContext] Error validando acceso en onAuthStateChanged:', validationErr);
+          // En caso de error de red o servidor al validar, por seguridad cerramos sesión
+          await firebaseSignOut(auth);
+          if (mounted) {
+            setFirebaseUser(null);
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+        // -------------------------------------
+
         if (!mounted) return;
         setUser(userData);
 
