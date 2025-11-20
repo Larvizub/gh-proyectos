@@ -328,7 +328,7 @@ function buildProjectCreatedEmail(project: any, ownerName: string): string {
   return getEmailTemplate(content);
 }
 
-function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assignedUserName?: string): string {
+function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assignedUserName?: string, changes: string[] = []): string {
   const taskTitle = escapeHtml(task?.title || 'Tarea sin título');
   const taskDesc = escapeHtml(task?.description || 'Sin descripción');
   const projectName = escapeHtml(project?.name || 'Proyecto sin nombre');
@@ -353,6 +353,18 @@ function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assign
   };
   const statusInfo = statusConfig[task?.status] || statusConfig.todo;
 
+  let changesHtml = '';
+  if (changes && changes.length > 0) {
+    changesHtml = `
+      <div class="info-card" style="background-color: #fff7ed; border-left-color: #f97316;">
+        <p class="info-label" style="color: #c2410c;">Cambios Recientes</p>
+        <ul style="margin: 8px 0 0 0; padding-left: 20px; color: #431407;">
+          ${changes.map(change => `<li>${change}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
   const content = `
     <div class="email-header">
       <div class="logo-container">
@@ -366,6 +378,8 @@ function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assign
       <h2 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 700; color: inherit;">${taskTitle}</h2>
       <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #64748b;">${taskDesc}</p>
       
+      ${changesHtml}
+
       <div style="margin-bottom: 24px;">
         <span class="badge" style="background-color: ${priorityInfo.color}; color: #ffffff;">
           Prioridad: ${priorityInfo.label}
@@ -502,119 +516,222 @@ export const onProjectCreated = functions.database
     return null;
   });
 
-/**
- * Trigger: Se ejecuta cuando se escribe (crea o actualiza) una tarea
- * Notifica al propietario del proyecto y al usuario asignado
- */
-export const onTaskUpdated = functions.database
-  .ref('/tasks/{taskId}')
-  .onWrite(async (change, context) => {
-    const taskId = context.params.taskId;
-    
-    // Si la tarea fue eliminada, no hacer nada
-    if (!change.after.exists()) {
-      functions.logger.log('📝 Task deleted, skipping notification:', taskId);
-      return null;
-    }
+// Helper para detectar cambios en tareas
+function getTaskChanges(before: any, after: any): string[] {
+  const changes: string[] = [];
+  if (!before) return ['Tarea creada'];
 
-    const before = change.before.exists() ? change.before.val() : null;
-    const after = change.after.val();
-    const isNewTask = !before;
+  if (before.title !== after.title) changes.push(`Título cambiado: "${before.title}" ➡️ "${after.title}"`);
+  if (before.description !== after.description) changes.push('Descripción actualizada');
+  
+  const statusMap: Record<string, string> = { 'todo': 'Por Hacer', 'in-progress': 'En Progreso', 'completed': 'Completada', 'blocked': 'Bloqueada' };
+  if (before.status !== after.status) changes.push(`Estado cambiado: "${statusMap[before.status] || before.status}" ➡️ "${statusMap[after.status] || after.status}"`);
+  
+  const priorityMap: Record<string, string> = { 'low': 'Baja', 'medium': 'Media', 'high': 'Alta', 'urgent': 'Urgente' };
+  if (before.priority !== after.priority) changes.push(`Prioridad cambiada: "${priorityMap[before.priority] || before.priority}" ➡️ "${priorityMap[after.priority] || after.priority}"`);
+  
+  if (before.dueDate !== after.dueDate) changes.push(`Fecha de vencimiento cambiada: "${formatDate(before.dueDate)}" ➡️ "${formatDate(after.dueDate)}"`);
+  
+  // Comparar asignados
+  const getAssigneeStr = (t: any) => {
+    if (Array.isArray(t.assigneeIds)) return t.assigneeIds.sort().join(',');
+    if (typeof t.assignedTo === 'string') return t.assignedTo;
+    if (t.assignedTo?.userId) return t.assignedTo.userId;
+    return '';
+  };
+  if (getAssigneeStr(before) !== getAssigneeStr(after)) changes.push('Asignación de usuarios actualizada');
 
-    functions.logger.log(`📝 Task ${isNewTask ? 'created' : 'updated'}:`, taskId);
+  return changes;
+}
 
-    // Verificar que la tarea tenga un proyecto asociado
-    if (!after?.projectId) {
-      functions.logger.warn('⚠️ Task has no projectId, skipping email');
-      return null;
-    }
+// Lógica centralizada para notificaciones de tareas
+async function handleTaskWrite(change: functions.Change<functions.database.DataSnapshot>, context: functions.EventContext, db: admin.database.Database) {
+  const taskId = context.params.taskId;
+  const before = change.before.exists() ? change.before.val() : null;
+  const after = change.after.exists() ? change.after.val() : null;
 
-    // Obtener token de acceso
-    const accessToken = await getAccessToken();
-    if (!accessToken) {
-      functions.logger.warn('⚠️ No access token available, skipping email');
-      return null;
-    }
-
-    // Obtener información del proyecto
-    const projectSnap = await admin.database().ref(`/projects/${after.projectId}`).once('value');
-    const project = projectSnap.val();
-
-    if (!project) {
-      functions.logger.warn('⚠️ Project not found, skipping email');
-      return null;
-    }
-
-    // Obtener email del owner del proyecto
-    const ownerEmail = project.ownerId ? await getUserEmail(project.ownerId, admin.database()) : null;
-    
-    // Obtener información del owner
-    let ownerName = 'Propietario';
-    if (project.ownerId) {
-      const ownerSnap = await admin.database().ref(`/users/${project.ownerId}`).once('value');
-      const ownerData = ownerSnap.val();
-      ownerName = ownerData?.displayName || ownerData?.name || ownerEmail || 'Propietario';
-    }
-
-    // Recopilar emails de destinatarios
-    const recipients: string[] = [];
-    
-    if (ownerEmail) {
-      recipients.push(ownerEmail);
-    }
-
-    // Obtener email del usuario asignado (si existe)
-    let assignedUserName: string | undefined;
-    let assignedUserEmail: string | null = null;
-    
-    if (after.assignedTo) {
-      // Si assignedTo es un string (userId)
-      if (typeof after.assignedTo === 'string') {
-        assignedUserEmail = await getUserEmail(after.assignedTo, admin.database());
-        if (assignedUserEmail) {
-          const assignedSnap = await admin.database().ref(`/users/${after.assignedTo}`).once('value');
-          const assignedData = assignedSnap.val();
-          assignedUserName = assignedData?.displayName || assignedData?.name || assignedUserEmail;
-        }
-      } 
-      // Si assignedTo es un objeto con userId
-      else if (after.assignedTo.userId) {
-        assignedUserEmail = await getUserEmail(after.assignedTo.userId, admin.database());
-        if (assignedUserEmail) {
-          const assignedSnap = await admin.database().ref(`/users/${after.assignedTo.userId}`).once('value');
-          const assignedData = assignedSnap.val();
-          assignedUserName = assignedData?.displayName || assignedData?.name || assignedUserEmail;
-        }
-      }
-      
-      if (assignedUserEmail && !recipients.includes(assignedUserEmail)) {
-        recipients.push(assignedUserEmail);
-      }
-    }
-
-    // Verificar si hay destinatarios
-    if (recipients.length === 0) {
-      functions.logger.warn('⚠️ No valid recipients found, skipping email');
-      return null;
-    }
-
-    // Enviar correo
-    try {
-      const action = isNewTask ? 'creada' : 'actualizada';
-      const subject = `Tarea ${action}: ${after.title || 'Sin título'} - ${project.name}`;
-      const body = buildTaskUpdateEmail(after, project, ownerName, assignedUserName);
-      
-      functions.logger.log(`📧 Sending email to ${recipients.length} recipient(s):`, recipients.join(', '));
-      
-      await sendEmail(accessToken, recipients, subject, body);
-      
-      functions.logger.log(`✅ Task ${action} email sent successfully to:`, recipients.join(', '));
-    } catch (err) {
-      functions.logger.error('❌ Failed to send task email:', err);
-    }
-
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    functions.logger.warn('⚠️ No access token available, skipping email');
     return null;
-  });
+  }
+
+  // --- MANEJO DE ELIMINACIÓN ---
+  if (!after) {
+    functions.logger.log('🗑️ Task deleted:', taskId);
+    if (!before || !before.projectId) return null;
+
+    const projectSnap = await db.ref(`/projects/${before.projectId}`).once('value');
+    const project = projectSnap.val();
+    if (!project) return null;
+
+    // Recopilar destinatarios (Owner + Asignados)
+    const recipients = new Set<string>();
+    
+    // Owner
+    if (project.ownerId) {
+      const email = await getUserEmail(project.ownerId, db);
+      if (email) recipients.add(email);
+    }
+
+    // Asignados (del estado anterior)
+    if (before.assigneeIds && Array.isArray(before.assigneeIds)) {
+      for (const uid of before.assigneeIds) {
+        const email = await getUserEmail(uid, db);
+        if (email) recipients.add(email);
+      }
+    } else if (before.assignedTo) {
+       // Legacy support
+       const uid = typeof before.assignedTo === 'string' ? before.assignedTo : before.assignedTo.userId;
+       if (uid) {
+         const email = await getUserEmail(uid, db);
+         if (email) recipients.add(email);
+       }
+    }
+
+    if (recipients.size === 0) return null;
+
+    const subject = `Tarea Eliminada: ${before.title} - ${project.name}`;
+    const htmlContent = getEmailTemplate(`
+      <div class="info-card" style="border-left-color: #ef4444; background-color: #fef2f2;">
+        <div class="info-label" style="color: #b91c1c;">Tarea Eliminada</div>
+        <div class="info-value">La tarea "<strong>${before.title}</strong>" ha sido eliminada del proyecto "${project.name}".</div>
+      </div>
+    `);
+
+    await sendEmail(accessToken, Array.from(recipients), subject, htmlContent);
+    return null;
+  }
+
+  // --- MANEJO DE CREACIÓN / ACTUALIZACIÓN ---
+  const isNewTask = !before;
+  const changes = getTaskChanges(before, after);
+
+  // Si es actualización y no hay cambios visibles, ignorar
+  if (!isNewTask && changes.length === 0) return null;
+
+  functions.logger.log(`📝 Task ${isNewTask ? 'created' : 'updated'}:`, taskId);
+
+  if (!after.projectId) return null;
+
+  const projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
+  const project = projectSnap.val();
+  if (!project) return null;
+
+  // Obtener nombre del owner
+  let ownerName = 'Propietario';
+  if (project.ownerId) {
+    const ownerSnap = await db.ref(`/users/${project.ownerId}`).once('value');
+    const ownerData = ownerSnap.val();
+    const ownerEmail = await getUserEmail(project.ownerId, db);
+    ownerName = ownerData?.displayName || ownerData?.name || ownerEmail || 'Propietario';
+  }
+
+  // Recopilar destinatarios
+  const recipients = new Set<string>();
+  
+  // Owner
+  if (project.ownerId) {
+    const email = await getUserEmail(project.ownerId, db);
+    if (email) recipients.add(email);
+  }
+
+  // Asignados
+  let assignedUserName: string | undefined;
+  if (after.assigneeIds && Array.isArray(after.assigneeIds)) {
+    for (const uid of after.assigneeIds) {
+      const email = await getUserEmail(uid, db);
+      if (email) recipients.add(email);
+      // Solo tomamos el nombre del primero para el template
+      if (!assignedUserName) {
+         const uSnap = await db.ref(`/users/${uid}`).once('value');
+         assignedUserName = uSnap.val()?.displayName || uSnap.val()?.name || email;
+      }
+    }
+  } else if (after.assignedTo) {
+     // Legacy
+     const uid = typeof after.assignedTo === 'string' ? after.assignedTo : after.assignedTo.userId;
+     if (uid) {
+       const email = await getUserEmail(uid, db);
+       if (email) recipients.add(email);
+       const uSnap = await db.ref(`/users/${uid}`).once('value');
+       assignedUserName = uSnap.val()?.displayName || uSnap.val()?.name || email;
+     }
+  }
+
+  if (recipients.size === 0) return null;
+
+  try {
+    const action = isNewTask ? 'creada' : 'actualizada';
+    const subject = `Tarea ${action}: ${after.title || 'Sin título'} - ${project.name}`;
+    const body = buildTaskUpdateEmail(after, project, ownerName, assignedUserName, changes);
+    
+    await sendEmail(accessToken, Array.from(recipients), subject, body);
+    functions.logger.log(`✅ Task ${action} email sent to:`, Array.from(recipients).join(', '));
+  } catch (err) {
+    functions.logger.error('❌ Failed to send task email:', err);
+  }
+
+  return null;
+}
+
+// Lógica centralizada para eliminación de proyectos
+async function handleProjectDelete(snap: functions.database.DataSnapshot, context: functions.EventContext, db: admin.database.Database) {
+  const project = snap.val();
+  if (!project) return null;
+
+  functions.logger.log('🗑️ Project deleted:', project.name);
+
+  const accessToken = await getAccessToken();
+  if (!accessToken) return null;
+
+  const recipients = new Set<string>();
+  
+  // Notificar al owner
+  if (project.ownerId) {
+    const email = await getUserEmail(project.ownerId, db);
+    if (email) recipients.add(email);
+  }
+
+  // Notificar a miembros (si existen en el modelo de datos)
+  if (project.members && Array.isArray(project.members)) {
+    for (const uid of project.members) {
+      const email = await getUserEmail(uid, db);
+      if (email) recipients.add(email);
+    }
+  }
+
+  if (recipients.size === 0) return null;
+
+  const subject = `Proyecto Eliminado: ${project.name}`;
+  const htmlContent = getEmailTemplate(`
+    <div class="info-card" style="border-left-color: #ef4444; background-color: #fef2f2;">
+      <div class="info-label" style="color: #b91c1c;">Proyecto Eliminado</div>
+      <div class="info-value">El proyecto "<strong>${project.name}</strong>" ha sido eliminado permanentemente.</div>
+    </div>
+  `);
+
+  await sendEmail(accessToken, Array.from(recipients), subject, htmlContent);
+  return null;
+}
+
+// --- EXPORTED FUNCTIONS ---
+
+// Default Site
+export const onTaskUpdated = functions.database.ref('/tasks/{taskId}').onWrite((c, ctx) => handleTaskWrite(c, ctx, admin.database()));
+export const onProjectDeleted = functions.database.ref('/projects/{projectId}').onDelete((s, ctx) => handleProjectDelete(s, ctx, admin.database()));
+
+// CCCR
+export const onTaskUpdated_CCCR = functions.database.instance('gh-proyectos-cccr').ref('/tasks/{taskId}').onWrite((c, ctx) => handleTaskWrite(c, ctx, admin.app().database('https://gh-proyectos-cccr.firebaseio.com')));
+export const onProjectDeleted_CCCR = functions.database.instance('gh-proyectos-cccr').ref('/projects/{projectId}').onDelete((s, ctx) => handleProjectDelete(s, ctx, admin.app().database('https://gh-proyectos-cccr.firebaseio.com')));
+
+// CCCI
+export const onTaskUpdated_CCCI = functions.database.instance('gh-proyectos-ccci').ref('/tasks/{taskId}').onWrite((c, ctx) => handleTaskWrite(c, ctx, admin.app().database('https://gh-proyectos-ccci.firebaseio.com')));
+export const onProjectDeleted_CCCI = functions.database.instance('gh-proyectos-ccci').ref('/projects/{projectId}').onDelete((s, ctx) => handleProjectDelete(s, ctx, admin.app().database('https://gh-proyectos-ccci.firebaseio.com')));
+
+// CEVP
+export const onTaskUpdated_CEVP = functions.database.instance('gh-proyectos-cevp').ref('/tasks/{taskId}').onWrite((c, ctx) => handleTaskWrite(c, ctx, admin.app().database('https://gh-proyectos-cevp.firebaseio.com')));
+export const onProjectDeleted_CEVP = functions.database.instance('gh-proyectos-cevp').ref('/projects/{projectId}').onDelete((s, ctx) => handleProjectDelete(s, ctx, admin.app().database('https://gh-proyectos-cevp.firebaseio.com')));
 
 /**
  * Helper function para procesar notificaciones de comentarios
@@ -1226,158 +1343,102 @@ export const upsertUser = functions.https.onCall(async (data, context) => {
   }
 });
 
+// Nueva función programada para verificar tareas vencidas o próximas a vencer
+export const checkTaskDueDates = functions.pubsub.schedule('every day 08:00').timeZone('America/Costa_Rica').onRun(async (context) => {
+  functions.logger.log('⏰ Iniciando verificación diaria de tareas...');
 
-/**
- * Helper: Procesa la actualización de una tarea y envía notificaciones
- */
-async function processTaskUpdate(
-  db: admin.database.Database,
-  change: functions.Change<functions.database.DataSnapshot>,
-  taskId: string
-) {
-  // Si la tarea fue eliminada, no hacer nada
-  if (!change.after.exists()) {
-    functions.logger.log('📝 Task deleted, skipping notification:', taskId);
-    return null;
-  }
+  const sites = [
+    { name: 'CORPORATIVO', url: undefined }, // Default DB
+    { name: 'CCCR', url: 'https://gh-proyectos-cccr.firebaseio.com' },
+    { name: 'CCCI', url: 'https://gh-proyectos-ccci.firebaseio.com' },
+    { name: 'CEVP', url: 'https://gh-proyectos-cevp.firebaseio.com' }
+  ];
 
-  const before = change.before.exists() ? change.before.val() : null;
-  const after = change.after.val();
-  const isNewTask = !before;
-
-  functions.logger.log(`📝 Task ${isNewTask ? 'created' : 'updated'}:`, taskId);
-
-  // Verificar que la tarea tenga un proyecto asociado
-  if (!after?.projectId) {
-    functions.logger.warn('⚠️ Task has no projectId, skipping email');
-    return null;
-  }
-
-  // Obtener token de acceso
   const accessToken = await getAccessToken();
   if (!accessToken) {
-    functions.logger.warn('⚠️ No access token available, skipping email');
-    return null;
+    functions.logger.error('❌ No se pudo obtener token de acceso para enviar correos.');
+    return;
   }
 
-  // Obtener información del proyecto
-  const projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
-  const project = projectSnap.val();
+  const now = new Date();
+  // Normalizar a inicio del día actual (00:00:00)
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  // Inicio de mañana
+  const tomorrowStart = todayStart + 86400000;
+  // Fin de mañana (inicio de pasado mañana)
+  const tomorrowEnd = tomorrowStart + 86400000;
 
-  if (!project) {
-    functions.logger.warn('⚠️ Project not found, skipping email');
-    return null;
-  }
+  for (const site of sites) {
+    try {
+      functions.logger.log(`🔍 Verificando sitio: ${site.name}`);
+      // Si url es undefined, usa la base de datos por defecto
+      const db = site.url ? admin.app().database(site.url) : admin.database();
+      
+      const tasksSnap = await db.ref('tasks').once('value');
+      const tasks = tasksSnap.val();
 
-  // Obtener email del owner del proyecto
-  const ownerEmail = project.ownerId ? await getUserEmail(project.ownerId, db) : null;
-  
-  // Obtener información del owner
-  let ownerName = 'Propietario';
-  if (project.ownerId) {
-    const ownerSnap = await db.ref(`/users/${project.ownerId}`).once('value');
-    const ownerData = ownerSnap.val();
-    ownerName = ownerData?.displayName || ownerData?.name || ownerEmail || 'Propietario';
-  }
+      if (!tasks) continue;
 
-  // Recopilar emails de destinatarios
-  const recipients: string[] = [];
-  
-  if (ownerEmail) {
-    recipients.push(ownerEmail);
-  }
+      for (const [taskId, task] of Object.entries(tasks)) {
+        const t = task as any;
+        // Ignorar tareas sin fecha o completadas
+        if (!t.dueDate || t.status === 'completed') continue;
 
-  // Obtener email del usuario asignado (si existe)
-  let assignedUserName: string | undefined;
-  let assignedUserEmail: string | null = null;
-  
-  if (after.assignedTo) {
-    // Si assignedTo es un string (userId)
-    if (typeof after.assignedTo === 'string') {
-      assignedUserEmail = await getUserEmail(after.assignedTo, db);
-      if (assignedUserEmail) {
-        const assignedSnap = await db.ref(`/users/${after.assignedTo}`).once('value');
-        const assignedData = assignedSnap.val();
-        assignedUserName = assignedData?.displayName || assignedData?.name || assignedUserEmail;
+        const dueDate = t.dueDate;
+        let shouldNotify = false;
+        let emailSubject = '';
+        let emailBodyTitle = '';
+        let emailMessage = '';
+
+        // Condición 1: Vence mañana (está en el rango de mañana)
+        if (dueDate >= tomorrowStart && dueDate < tomorrowEnd) {
+          shouldNotify = true;
+          emailSubject = `🔔 Recordatorio: Tarea próxima a vencer - ${t.title}`;
+          emailBodyTitle = 'Tarea próxima a vencer';
+          emailMessage = `La tarea "<strong>${t.title}</strong>" vence mañana.`;
+        }
+        // Condición 2: Ya venció (es menor al inicio de hoy)
+        // Se envía recordatorio diario mientras siga vencida y no completada
+        else if (dueDate < todayStart) {
+          shouldNotify = true;
+          emailSubject = `⚠️ Alerta: Tarea vencida - ${t.title}`;
+          emailBodyTitle = 'Tarea Vencida';
+          emailMessage = `La tarea "<strong>${t.title}</strong>" está vencida desde el ${formatDate(dueDate)}.`;
+        }
+
+        if (shouldNotify && t.assigneeIds && Array.isArray(t.assigneeIds)) {
+          const assigneeEmails: string[] = [];
+          for (const userId of t.assigneeIds) {
+            // Reutilizamos getUserEmail que ya existe en el archivo
+            const email = await getUserEmail(userId, db);
+            if (email) assigneeEmails.push(email);
+          }
+
+          if (assigneeEmails.length > 0) {
+            const htmlContent = getEmailTemplate(`
+              <div class="info-card">
+                <div class="info-label">${emailBodyTitle}</div>
+                <div class="info-value">${emailMessage}</div>
+              </div>
+              <div style="margin-top: 20px;">
+                <p><strong>Proyecto:</strong> ${t.projectId || 'Sin proyecto'}</p>
+                <p><strong>Estado:</strong> ${t.status}</p>
+                <p><strong>Prioridad:</strong> ${t.priority}</p>
+              </div>
+              <div style="text-align: center; margin-top: 30px;">
+                <a href="https://gh-proyectos.web.app/" style="background-color: #F2B05F; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ver Tarea</a>
+              </div>
+            `);
+
+            await sendEmail(accessToken, assigneeEmails, emailSubject, htmlContent);
+            functions.logger.log(`📧 Notificación enviada para tarea ${taskId} a ${assigneeEmails.join(', ')}`);
+          }
+        }
       }
-    } 
-    // Si assignedTo es un objeto con userId
-    else if (after.assignedTo.userId) {
-      assignedUserEmail = await getUserEmail(after.assignedTo.userId, db);
-      if (assignedUserEmail) {
-        const assignedSnap = await db.ref(`/users/${after.assignedTo.userId}`).once('value');
-        const assignedData = assignedSnap.val();
-        assignedUserName = assignedData?.displayName || assignedData?.name || assignedUserEmail;
-      }
-    }
-    
-    if (assignedUserEmail && !recipients.includes(assignedUserEmail)) {
-      recipients.push(assignedUserEmail);
+    } catch (err) {
+      functions.logger.error(`❌ Error procesando sitio ${site.name}:`, err);
     }
   }
-
-  // Verificar si hay destinatarios
-  if (recipients.length === 0) {
-    functions.logger.warn('⚠️ No valid recipients found, skipping email');
-    return null;
-  }
-
-  // Enviar correo
-  try {
-    const action = isNewTask ? 'creada' : 'actualizada';
-    const subject = `Tarea ${action}: ${after.title || 'Sin título'} - ${project.name}`;
-    const body = buildTaskUpdateEmail(after, project, ownerName, assignedUserName);
-    
-    functions.logger.log(`📧 Sending email to ${recipients.length} recipient(s):`, recipients.join(', '));
-    
-    await sendEmail(accessToken, recipients, subject, body);
-    
-    functions.logger.log(`✅ Task ${action} email sent successfully to:`, recipients.join(', '));
-  } catch (err) {
-    functions.logger.error('❌ Failed to send task email:', err);
-  }
-
-  return null;
-}
-
-/**
- * Triggers para instancias adicionales de base de datos
- */
-export const onTaskUpdated_CCCR = functions.database
-  .instance('gh-proyectos-cccr')
-  .ref('/tasks/{taskId}')
-  .onWrite(async (change, context) => {
-    try {
-      const db = admin.app().database('https://gh-proyectos-cccr.firebaseio.com');
-      return await processTaskUpdate(db, change, context.params.taskId);
-    } catch (err) {
-      functions.logger.error('onTaskUpdated_CCCR error:', err);
-      return null;
-    }
-  });
-
-export const onTaskUpdated_CCCI = functions.database
-  .instance('gh-proyectos-ccci')
-  .ref('/tasks/{taskId}')
-  .onWrite(async (change, context) => {
-    try {
-      const db = admin.app().database('https://gh-proyectos-ccci.firebaseio.com');
-      return await processTaskUpdate(db, change, context.params.taskId);
-    } catch (err) {
-      functions.logger.error('onTaskUpdated_CCCI error:', err);
-      return null;
-    }
-  });
-
-export const onTaskUpdated_CEVP = functions.database
-  .instance('gh-proyectos-cevp')
-  .ref('/tasks/{taskId}')
-  .onWrite(async (change, context) => {
-    try {
-      const db = admin.app().database('https://gh-proyectos-cevp.firebaseio.com');
-      return await processTaskUpdate(db, change, context.params.taskId);
-    } catch (err) {
-      functions.logger.error('onTaskUpdated_CEVP error:', err);
-      return null;
-    }
-  });
+  
+  functions.logger.log('✅ Verificación diaria completada.');
+});
