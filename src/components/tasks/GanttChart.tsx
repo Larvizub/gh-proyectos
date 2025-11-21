@@ -152,7 +152,7 @@ export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttCh
                     style={{
                       width: `${Math.max(widthPct, 6)}%`,
                       marginLeft: `${Math.max(leftPct, 0)}%`,
-                      background: 'linear-gradient(90deg, rgba(99,102,241,0.95), rgba(79,70,229,0.9))',
+                      background: 'linear-gradient(90deg, #124734, #273c2a)',
                       minWidth: '36px'
                     }}
                     title={`${task.title} — ${format(taskStart, 'dd/MM')} → ${format(taskEnd, 'dd/MM')}`}
@@ -194,7 +194,7 @@ export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttCh
                     style={{
                       left: `${leftPct}%`,
                       width: `${widthPct}%`,
-                      background: 'linear-gradient(90deg, rgba(99,102,241,0.95), rgba(79,70,229,0.9))',
+                      background: 'linear-gradient(90deg, #124734, #273c2a)',
                     }}
                     title={`${task.title} — ${taskStart.toLocaleDateString()} → ${taskEnd.toLocaleDateString()}`}
                   >

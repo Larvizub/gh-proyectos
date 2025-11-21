@@ -78,7 +78,7 @@ export default function CalendarView({ tasks, onTaskClick, onTaskDelete }: Calen
 
                       <div className="mt-2 space-y-1">
                         {dayTasks.slice(0, 3).map((task) => (
-                          <div key={task.id} className="relative rounded-md px-2 py-1 text-sm text-white shadow-sm" style={{ background: 'linear-gradient(90deg, rgba(99,102,241,0.95), rgba(79,70,229,0.9))' }}>
+                          <div key={task.id} className="relative rounded-md px-2 py-1 text-sm text-white shadow-sm" style={{ background: 'linear-gradient(90deg, #124734, #273c2a)' }}>
                             <div className="truncate" onClick={() => onTaskClick && onTaskClick(task)}>{task.title}</div>
                             <button onClick={(e) => { e.stopPropagation(); onTaskDelete && onTaskDelete(task.id); }} className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 rounded ml-2">
                               <Trash2 className="h-3 w-3 text-white" />
