@@ -6,11 +6,13 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import Select from '@/components/ui/select';
+import { PageLoader } from '@/components/PageLoader';
 
 export function LoginPage() {
   const { signInWithMicrosoft, loading, user } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [site, setSite] = useState<'CORPORATIVO' | 'CCCR' | 'CCCI' | 'CEVP'>(() => {
     try {
       const s = localStorage.getItem('selectedSite');
@@ -29,13 +31,19 @@ export function LoginPage() {
   }, [user, navigate]);
 
   const handleLogin = async () => {
+    setIsLoggingIn(true);
     try {
       await signInWithMicrosoft(site);
     } catch (error: any) {
       console.error('Error al iniciar sesión:', error);
       toast.error(error?.message || 'Error al iniciar sesión');
+      setIsLoggingIn(false);
     }
   };
+
+  if (loading || isLoggingIn) {
+    return <PageLoader message="Iniciando sesión..." />;
+  }
 
   return (
     <div className="relative flex min-h-screen items-center justify-center p-4">
