@@ -207,6 +207,16 @@ export default function ProjectModal({ open, onClose, onSave, initial }: Props) 
                 setSaving(true);
                 try {
                   const payload: any = { name: name.trim(), description: description.trim(), color, status, tags, owners: ownerIds };
+                  
+                  // Calculate diffs for notifications
+                  const initialTags = initial?.tags || [];
+                  const initialOwners = initial?.owners || (initial?.ownerId ? [initial.ownerId] : []);
+                  
+                  const addedTags = tags.filter(t => !initialTags.includes(t));
+                  const removedTags = initialTags.filter(t => !tags.includes(t));
+                  const addedOwners = ownerIds.filter(o => !initialOwners.includes(o));
+                  // const removedOwners = initialOwners.filter(o => !ownerIds.includes(o));
+
                   if (initial && initial.id) {
                     payload.id = initial.id;
                     // preserve legacy ownerId if present, otherwise set from owners
@@ -217,27 +227,55 @@ export default function ProjectModal({ open, onClose, onSave, initial }: Props) 
                     if (ownerIds.length > 0) payload.ownerId = ownerIds[0];
                     await onSave(payload);
                   }
+                  
                   // Notify owners via notificationsService and try sending email via Graph when possible
                   try {
-                    if (ownerIds && ownerIds.length > 0) {
-                      // Create DB notifications for owners
-                      await notificationsService.createForUsers(ownerIds, { type: 'project-owner-assigned', title: `Has sido asignado como propietario del proyecto ${name.trim()}`, message: `Has sido agregado como propietario del proyecto '${name.trim()}'`, relatedId: payload.id || null });
+                    const rawDbKey = (typeof window !== 'undefined') ? localStorage.getItem('selectedSite') : null;
+                    let dbUrl: string | undefined;
+                    if (rawDbKey && (rawDbKey in DATABASE_URLS)) {
+                      dbUrl = DATABASE_URLS[rawDbKey as keyof typeof DATABASE_URLS as any as import('@/config/firebase').SiteKey];
+                    } else {
+                      dbUrl = undefined;
+                    }
+                    const fn = httpsCallable(cloudFunctions as any, 'inviteOrNotifyOwners');
 
-                      // Call backend callable to send emails and create invitations if needed
+                    // 1. Notify NEW owners (Assignment)
+                    if (addedOwners.length > 0) {
+                      // Create DB notifications for new owners
+                      await notificationsService.createForUsers(addedOwners, { type: 'project-owner-assigned', title: `Has sido asignado como propietario del proyecto ${name.trim()}`, message: `Has sido agregado como propietario del proyecto '${name.trim()}'`, relatedId: payload.id || null });
+
+                      // Email new owners
                       try {
-                        const rawDbKey = (typeof window !== 'undefined') ? localStorage.getItem('selectedSite') : null;
-                        let dbUrl: string | undefined;
-                        if (rawDbKey && (rawDbKey in DATABASE_URLS)) {
-                          dbUrl = DATABASE_URLS[rawDbKey as keyof typeof DATABASE_URLS as any as import('@/config/firebase').SiteKey];
-                        } else {
-                          dbUrl = undefined;
-                        }
-                        const fn = httpsCallable(cloudFunctions as any, 'inviteOrNotifyOwners');
-                        await fn({ dbUrl, ownerIds, projectId: payload.id || initial?.id || null, projectName: name.trim(), inviterId: user?.id || null });
+                        await fn({ 
+                          dbUrl, 
+                          ownerIds: addedOwners, 
+                          projectId: payload.id || initial?.id || null, 
+                          projectName: name.trim(), 
+                          inviterId: user?.id || null,
+                          notificationType: 'owner-assignment'
+                        });
                       } catch (err) {
-                        console.warn('Backend callable inviteOrNotifyOwners failed', err);
+                        console.warn('Backend callable inviteOrNotifyOwners (assignment) failed', err);
                       }
                     }
+
+                    // 2. Notify ALL owners about TAG changes
+                    if ((addedTags.length > 0 || removedTags.length > 0) && ownerIds.length > 0) {
+                       try {
+                        await fn({ 
+                          dbUrl, 
+                          ownerIds: ownerIds, // Notify all current owners
+                          projectId: payload.id || initial?.id || null, 
+                          projectName: name.trim(), 
+                          inviterId: user?.id || null,
+                          notificationType: 'tags-update',
+                          changes: { addedTags, removedTags }
+                        });
+                      } catch (err) {
+                        console.warn('Backend callable inviteOrNotifyOwners (tags) failed', err);
+                      }
+                    }
+
                   } catch (err) {
                     console.warn('Failed to notify owners', err);
                   }
