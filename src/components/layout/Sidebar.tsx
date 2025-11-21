@@ -105,7 +105,7 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
                     <User className="h-4 w-4 flex-shrink-0" />
                     <span className="ml-2 whitespace-nowrap">{user.displayName}</span>
                   </Link>
-                  <button type="button" onClick={() => { signOut(); onClose && onClose(); }} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all text-muted-foreground hover:bg-accent hover:text-accent-foreground" title="Cerrar sesión">
+                  <button type="button" onClick={() => { signOut(); onClose && onClose(); }} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all text-red-600 hover:bg-red-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300" title="Cerrar sesión">
                     <LogOut className="h-4 w-4 flex-shrink-0" />
                     <span className="ml-2 whitespace-nowrap">Cerrar sesión</span>
                   </button>
@@ -195,7 +195,7 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
               <button
                 type="button"
                 onClick={signOut}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all justify-center group-hover:justify-start text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all justify-center group-hover:justify-start text-red-600 hover:bg-red-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300"
                 title="Cerrar sesión"
               >
                 <LogOut className="h-4 w-4 flex-shrink-0" />
