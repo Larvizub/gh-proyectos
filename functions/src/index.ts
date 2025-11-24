@@ -1515,8 +1515,13 @@ export const checkTaskDueDates = functions.pubsub.schedule('every day 08:00').ti
       // Si url es undefined, usa la base de datos por defecto
       const db = site.url ? admin.app().database(site.url) : admin.database();
       
-      const tasksSnap = await db.ref('tasks').once('value');
+      const [tasksSnap, projectsSnap] = await Promise.all([
+        db.ref('tasks').once('value'),
+        db.ref('projects').once('value')
+      ]);
+
       const tasks = tasksSnap.val();
+      const projects = projectsSnap.val() || {};
 
       if (!tasks) continue;
 
@@ -1556,6 +1561,9 @@ export const checkTaskDueDates = functions.pubsub.schedule('every day 08:00').ti
           }
 
           if (assigneeEmails.length > 0) {
+            const project = projects[t.projectId];
+            const projectName = project ? project.name : 'Sin proyecto';
+
             const content = `
               <div class="email-header">
                 <div class="logo-container">
@@ -1573,7 +1581,7 @@ export const checkTaskDueDates = functions.pubsub.schedule('every day 08:00').ti
                 <div style="margin-top: 24px; padding: 0 8px;">
                   <div style="margin-bottom: 16px;">
                     <div class="info-label">Proyecto</div>
-                    <div class="info-value">${t.projectId || 'Sin proyecto'}</div>
+                    <div class="info-value">${projectName}</div>
                   </div>
                   
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
