@@ -1567,7 +1567,7 @@ export const checkTaskDueDates = functions.pubsub.schedule('every day 08:00').ti
                 <p><strong>Prioridad:</strong> ${t.priority}</p>
               </div>
               <div style="text-align: center; margin-top: 30px;">
-                <a href="https://gh-proyectos.web.app/" style="background-color: #F2B05F; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ver Tarea</a>
+                <a href="https://gh-proyectos.web.app/" style="display: inline-block; background-color: #F2B05F; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ver Tarea</a>
               </div>
             `);
 
