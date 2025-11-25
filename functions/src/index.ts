@@ -1515,8 +1515,13 @@ export const checkTaskDueDates = functions.pubsub.schedule('every day 08:00').ti
       // Si url es undefined, usa la base de datos por defecto
       const db = site.url ? admin.app().database(site.url) : admin.database();
       
-      const tasksSnap = await db.ref('tasks').once('value');
+      const [tasksSnap, projectsSnap] = await Promise.all([
+        db.ref('tasks').once('value'),
+        db.ref('projects').once('value')
+      ]);
+
       const tasks = tasksSnap.val();
+      const projects = projectsSnap.val() || {};
 
       if (!tasks) continue;
 
@@ -1556,20 +1561,53 @@ export const checkTaskDueDates = functions.pubsub.schedule('every day 08:00').ti
           }
 
           if (assigneeEmails.length > 0) {
-            const htmlContent = getEmailTemplate(`
-              <div class="info-card">
-                <div class="info-label">${emailBodyTitle}</div>
-                <div class="info-value">${emailMessage}</div>
+            const project = projects[t.projectId];
+            const projectName = project ? project.name : 'Sin proyecto';
+
+            const content = `
+              <div class="email-header">
+                <div class="logo-container">
+                  <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+                </div>
+                <h1 class="email-title">${emailBodyTitle}</h1>
+                <p class="email-subtitle">Sistema de Gestión de Proyectos</p>
               </div>
-              <div style="margin-top: 20px;">
-                <p><strong>Proyecto:</strong> ${t.projectId || 'Sin proyecto'}</p>
-                <p><strong>Estado:</strong> ${t.status}</p>
-                <p><strong>Prioridad:</strong> ${t.priority}</p>
+              
+              <div class="email-body">
+                <div class="info-card">
+                  <div class="info-value" style="font-weight: normal;">${emailMessage}</div>
+                </div>
+
+                <div style="margin-top: 24px; padding: 0 8px;">
+                  <div style="margin-bottom: 16px;">
+                    <div class="info-label">Proyecto</div>
+                    <div class="info-value">${projectName}</div>
+                  </div>
+                  
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div>
+                      <div class="info-label">Estado</div>
+                      <div class="badge" style="background-color: #e2e8f0; color: #475569; margin: 0;">${t.status}</div>
+                    </div>
+                    <div>
+                      <div class="info-label">Prioridad</div>
+                      <div class="badge" style="background-color: #fee2e2; color: #991b1b; margin: 0;">${t.priority}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="text-align: center;">
+                  <a href="https://gh-proyectos.web.app/" class="cta-button" style="display: inline-block; background-color: #F2B05F; color: #273c2a; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Ver Tarea</a>
+                </div>
               </div>
-              <div style="text-align: center; margin-top: 30px;">
-                <a href="https://gh-proyectos.web.app/" style="display: inline-block; background-color: #F2B05F; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ver Tarea</a>
+              
+              <div class="email-footer">
+                <p>Este es un mensaje automático, por favor no responder.</p>
+                <p>&copy; ${new Date().getFullYear()} Grupo Heroica. Todos los derechos reservados.</p>
               </div>
-            `);
+            `;
+
+            const htmlContent = getEmailTemplate(content);
 
             await sendEmail(accessToken, assigneeEmails, emailSubject, htmlContent);
             functions.logger.log(`📧 Notificación enviada para tarea ${taskId} a ${assigneeEmails.join(', ')}`);
