@@ -693,9 +693,24 @@ async function handleTaskWrite(change: functions.Change<functions.database.DataS
 
     const subject = `Tarea Eliminada: ${before.title} - ${project.name}`;
     const htmlContent = getEmailTemplate(`
-      <div class="info-card" style="border-left-color: #ef4444; background-color: #fef2f2;">
-        <div class="info-label" style="color: #b91c1c;">Tarea Eliminada</div>
-        <div class="info-value">La tarea "<strong>${before.title}</strong>" ha sido eliminada del proyecto "${project.name}".</div>
+      <div class="email-header">
+        <div class="logo-container">
+          <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+        </div>
+        <h1 class="email-title">Tarea Eliminada</h1>
+        <p class="email-subtitle">Sistema de Gestión de Proyectos</p>
+      </div>
+      
+      <div class="email-body">
+        <div class="info-card" style="border-left-color: #ef4444; background-color: #fef2f2;">
+          <div class="info-label" style="color: #b91c1c;">Tarea Eliminada</div>
+          <div class="info-value">La tarea "<strong>${before.title}</strong>" ha sido eliminada del proyecto "${project.name}".</div>
+        </div>
+      </div>
+
+      <div class="email-footer">
+        <p>Este es un mensaje automático, por favor no responder.</p>
+        <p>&copy; ${new Date().getFullYear()} Grupo Heroica. Todos los derechos reservados.</p>
       </div>
     `);
 
@@ -805,9 +820,24 @@ async function handleProjectDelete(snap: functions.database.DataSnapshot, contex
 
   const subject = `Proyecto Eliminado: ${project.name}`;
   const htmlContent = getEmailTemplate(`
-    <div class="info-card" style="border-left-color: #ef4444; background-color: #fef2f2;">
-      <div class="info-label" style="color: #b91c1c;">Proyecto Eliminado</div>
-      <div class="info-value">El proyecto "<strong>${project.name}</strong>" ha sido eliminado permanentemente.</div>
+    <div class="email-header">
+      <div class="logo-container">
+        <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+      </div>
+      <h1 class="email-title">Proyecto Eliminado</h1>
+      <p class="email-subtitle">Sistema de Gestión de Proyectos</p>
+    </div>
+    
+    <div class="email-body">
+      <div class="info-card" style="border-left-color: #ef4444; background-color: #fef2f2;">
+        <div class="info-label" style="color: #b91c1c;">Proyecto Eliminado</div>
+        <div class="info-value">El proyecto "<strong>${project.name}</strong>" ha sido eliminado permanentemente.</div>
+      </div>
+    </div>
+
+    <div class="email-footer">
+      <p>Este es un mensaje automático, por favor no responder.</p>
+      <p>&copy; ${new Date().getFullYear()} Grupo Heroica. Todos los derechos reservados.</p>
     </div>
   `);
 
