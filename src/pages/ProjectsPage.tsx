@@ -68,7 +68,7 @@ export function ProjectsPage() {
   // Memorizar el filtrado para evitar recálculos en cada render
   const userProjects = useMemo(() => {
     return projects.filter(
-      p => p.ownerId === user?.id || p.memberIds?.includes(user?.id || '') || assignedProjectIds.has(p.id)
+      p => p.ownerId === user?.id || p.memberIds?.includes(user?.id || '') || p.owners?.includes(user?.id || '') || assignedProjectIds.has(p.id)
     );
   }, [projects, user?.id, assignedProjectIds]);
 
@@ -210,7 +210,8 @@ export function ProjectsPage() {
                   status: payload.status,
                   tags: payload.tags,
                   owners: payload.owners,
-                  ownerId: payload.ownerId
+                  ownerId: payload.ownerId,
+                  memberIds: payload.owners
                 });
                 toast.success('Proyecto actualizado');
               } else {

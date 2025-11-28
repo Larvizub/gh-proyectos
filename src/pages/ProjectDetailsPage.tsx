@@ -277,9 +277,9 @@ export default function ProjectDetailsPage() {
             </div>
           </div>
 
-          {/* Fila 2: Filtro de tags (si existe) y acción de nueva tarea */}
-          {project.tags && project.tags.length > 0 && (
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          {/* Fila 2: Filtro de tags y acción de nueva tarea */}
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            {project.tags && project.tags.length > 0 ? (
               <div className="w-full sm:max-w-[240px]">
                 <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full">
                   <option value="">Todos los tags</option>
@@ -288,15 +288,16 @@ export default function ProjectDetailsPage() {
                   ))}
                 </Select>
               </div>
-              <Button
-                onClick={() => setShowNewTaskForm(!showNewTaskForm)}
-                className="hidden sm:inline-flex h-11 shadow-sm whitespace-nowrap"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nueva Tarea
-              </Button>
-            </div>
-          )}
+            ) : <div />}
+            
+            <Button
+              onClick={() => setShowNewTaskForm(!showNewTaskForm)}
+              className="hidden sm:inline-flex h-11 shadow-sm whitespace-nowrap"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Tarea
+            </Button>
+          </div>
 
           {/* Fila 3: Selector de vistas y botón nueva tarea para mobile */}
           <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-between sm:justify-start">
@@ -395,7 +396,8 @@ export default function ProjectDetailsPage() {
               status: payload.status,
               tags: payload.tags,
               owners: payload.owners,
-              ownerId: payload.ownerId
+              ownerId: payload.ownerId,
+              memberIds: payload.owners
             });
             const updated = await projectsService.get(payload.id);
             setProject(updated);
