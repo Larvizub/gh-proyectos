@@ -148,9 +148,11 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDele
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const task = tasks.find(t => t.id === event.active.id);
     setActiveTask(task || null);
+    document.body.classList.add('is-dragging');
   }, [tasks]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
+    document.body.classList.remove('is-dragging');
     const { active, over } = event;
     
     if (!over) {
@@ -190,6 +192,11 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDele
 
     setActiveTask(null);
   }, [tasks, onTaskStatusChange]);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveTask(null);
+    document.body.classList.remove('is-dragging');
+  }, []);
 
   const getTasksByStatus = useCallback((status: TaskStatus) => {
     const filtered = tasks.filter(task => task.status === status);
@@ -252,6 +259,8 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDele
       sensors={sensors}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+      autoScroll={false}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 h-full">
         {COLUMNS.map((column) => {

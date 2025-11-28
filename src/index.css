@@ -218,3 +218,14 @@ button { border-radius: 8px; border: 1px solid transparent; padding: 0.6em 1.2em
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
 }
+
+/* Prevent sidebar expansion during drag operations to avoid layout shifts */
+body.is-dragging aside.group {
+  pointer-events: none !important;
+  width: 4rem !important;
+  flex: 0 0 4rem !important;
+  max-width: 4rem !important;
+  min-width: 4rem !important;
+  transition: none !important;
+}
+

@@ -11,7 +11,7 @@ export function MainLayout() {
       <Header onToggleSidebar={() => setSidebarOpen(v => !v)} />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <main className="flex-1 p-4 md:p-8 overflow-auto">
+        <main className="flex-1 min-w-0 p-4 md:p-8 overflow-y-auto overflow-x-hidden relative w-full max-w-full">
           <Outlet />
         </main>
       </div>
