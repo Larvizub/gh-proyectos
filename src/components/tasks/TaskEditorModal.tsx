@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Task, TaskStatus, User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -239,8 +240,8 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40">
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <Card className="relative z-50 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between">
@@ -423,6 +424,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 }

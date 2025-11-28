@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -57,8 +58,8 @@ export default function RoleModal({ open, onClose, onSave, initial }: Props) {
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-xl bg-card rounded-md p-6 z-10 shadow-lg">
         <h2 className="text-lg font-semibold mb-4">{initial ? 'Editar rol' : 'Crear rol'}</h2>
@@ -85,6 +86,7 @@ export default function RoleModal({ open, onClose, onSave, initial }: Props) {
           <Button onClick={handleSave} disabled={saving || !name.trim()}>{saving ? 'Guardando...' : 'Guardar'}</Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

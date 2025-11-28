@@ -70,7 +70,7 @@ export default function ProjectModal({ open, onClose, onSave, initial }: Props) 
   if (!open) return null;
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div className="fixed inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-xl z-10">
         <Card className="shadow-lg">
