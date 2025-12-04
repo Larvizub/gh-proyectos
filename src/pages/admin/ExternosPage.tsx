@@ -115,7 +115,20 @@ export default function ExternosPage() {
                 <li key={it.id} className="flex items-center justify-between p-3 rounded bg-card border">
                   <div className="text-sm">{it.email}</div>
                       <div>
-                        <Button variant="destructive" onClick={() => remove(it.id, it.email)}>Eliminar</Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => remove(it.id, it.email)}
+                          aria-label={`Eliminar ${it.email}`}
+                          title="Eliminar"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                            <path d="M10 11v6"></path>
+                            <path d="M14 11v6"></path>
+                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                          </svg>
+                        </Button>
                       </div>
                 </li>
               ))}
