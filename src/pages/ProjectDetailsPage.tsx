@@ -297,7 +297,7 @@ export default function ProjectDetailsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setCharterModalOpen(true)}
-                className="h-9 gap-2 whitespace-nowrap"
+                className="h-[38px] gap-2 whitespace-nowrap"
               >
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">Acta de Constitución</span>
