@@ -502,6 +502,160 @@ function buildProjectOwnerAssignmentEmail(projectName: string, inviterName: stri
   `);
 }
 
+function buildCharterEmail(charter: any, project: any, isNew: boolean, modifierName: string): string {
+  const projectName = escapeHtml(project?.name || charter?.projectName || 'Sin nombre');
+  const action = isNew ? 'creada' : 'actualizada';
+  const emoji = isNew ? '📄' : '✏️';
+
+  const sections = [
+    { label: 'Descripción', value: charter?.projectDescription },
+    { label: 'Caso de Negocio', value: charter?.businessCase },
+    { label: 'Objetivos', value: charter?.objectives },
+    { label: 'Criterios de Éxito', value: charter?.successCriteria },
+    { label: 'Gerente del Proyecto', value: charter?.projectManager },
+    { label: 'Patrocinador', value: charter?.projectSponsor },
+  ].filter(s => s.value);
+
+  const sectionsHtml = sections.map(s => `
+    <div style="margin-bottom: 12px;">
+      <div class="info-label">${s.label}</div>
+      <div style="font-size: 14px; color: #374151; line-height: 1.5;">${escapeHtml(s.value).substring(0, 200)}${s.value.length > 200 ? '...' : ''}</div>
+    </div>
+  `).join('');
+
+  return getEmailTemplate(`
+    <div class="email-header">
+      <div class="logo-container">
+        <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+      </div>
+      <h1 class="email-title">${emoji} Acta de Constitución ${action}</h1>
+      <p class="email-subtitle">Sistema de Gestión de Proyectos</p>
+    </div>
+    
+    <div class="email-body">
+      <div class="info-card" style="border-left-color: #3b82f6; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 197, 253, 0.1) 100%);">
+        <div class="info-label" style="color: #1d4ed8;">Proyecto</div>
+        <div class="info-value" style="color: #1e40af;">${projectName}</div>
+      </div>
+
+      <div style="background-color: #f8fafc; border-radius: 12px; padding: 16px; margin-top: 16px;">
+        ${sectionsHtml || '<p style="color: #64748b;">Sin detalles adicionales</p>'}
+      </div>
+
+      <div class="info-card" style="margin-top: 16px;">
+        <div class="info-label">👤 ${isNew ? 'Creado' : 'Modificado'} por</div>
+        <div class="info-value">${escapeHtml(modifierName)}</div>
+      </div>
+
+      <div style="text-align: center; margin-top: 24px;">
+        <a href="https://gh-proyectos.web.app/projects/${charter?.projectId}" class="cta-button">Ver Proyecto</a>
+      </div>
+    </div>
+    
+    <div class="email-footer">
+      <p style="margin: 0;">Este es un mensaje automático de la plataforma de Gestión de Proyectos de Grupo Heroica.</p>
+    </div>
+  `);
+}
+
+function getRiskScoreLabelEmail(score: number): { label: string; color: string; bgColor: string } {
+  if (score <= 4) return { label: 'Bajo', color: '#065f46', bgColor: '#d1fae5' };
+  if (score <= 9) return { label: 'Moderado', color: '#92400e', bgColor: '#fef3c7' };
+  if (score <= 15) return { label: 'Alto', color: '#c2410c', bgColor: '#ffedd5' };
+  return { label: 'Crítico', color: '#991b1b', bgColor: '#fee2e2' };
+}
+
+const PROBABILITY_LABELS_EMAIL: Record<string, string> = {
+  'very-low': 'Muy Baja', 'low': 'Baja', 'medium': 'Media', 'high': 'Alta', 'very-high': 'Muy Alta',
+};
+
+const IMPACT_LABELS_EMAIL: Record<string, string> = {
+  'very-low': 'Muy Bajo', 'low': 'Bajo', 'medium': 'Medio', 'high': 'Alto', 'very-high': 'Muy Alto',
+};
+
+const CATEGORY_LABELS_EMAIL: Record<string, string> = {
+  'technical': 'Técnico', 'external': 'Externo', 'organizational': 'Organizacional', 'project-management': 'Gestión de Proyecto',
+};
+
+const RESPONSE_LABELS_EMAIL: Record<string, string> = {
+  'avoid': 'Evitar', 'transfer': 'Transferir', 'mitigate': 'Mitigar', 'accept': 'Aceptar',
+  'exploit': 'Explotar', 'share': 'Compartir', 'enhance': 'Mejorar',
+};
+
+function buildRiskEmail(risk: any, project: any, isNew: boolean, modifierName: string): string {
+  const projectName = escapeHtml(project?.name || 'Sin nombre');
+  const riskTitle = escapeHtml(risk?.title || 'Sin título');
+  const action = isNew ? 'identificado' : 'actualizado';
+  const emoji = isNew ? '⚠️' : '🔄';
+  
+  const scoreInfo = getRiskScoreLabelEmail(risk?.riskScore || 0);
+  const probability = PROBABILITY_LABELS_EMAIL[risk?.probability] || risk?.probability || '-';
+  const impact = IMPACT_LABELS_EMAIL[risk?.impact] || risk?.impact || '-';
+  const category = CATEGORY_LABELS_EMAIL[risk?.category] || risk?.category || '-';
+  const response = RESPONSE_LABELS_EMAIL[risk?.responseStrategy] || risk?.responseStrategy || '-';
+
+  return getEmailTemplate(`
+    <div class="email-header">
+      <div class="logo-container">
+        <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+      </div>
+      <h1 class="email-title">${emoji} Riesgo ${action}</h1>
+      <p class="email-subtitle">${projectName}</p>
+    </div>
+    
+    <div class="email-body">
+      <h2 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 700; color: #1f2937;">${riskTitle}</h2>
+      ${risk?.description ? `<p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">${escapeHtml(risk.description).substring(0, 300)}${risk.description.length > 300 ? '...' : ''}</p>` : ''}
+      
+      <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+        <div style="text-align: center; padding: 16px 32px; background-color: ${scoreInfo.bgColor}; border-radius: 12px;">
+          <div style="font-size: 32px; font-weight: 700; color: ${scoreInfo.color};">${risk?.riskScore || 0}</div>
+          <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: ${scoreInfo.color}; font-weight: 600;">${scoreInfo.label}</div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;">
+        <div class="info-card" style="margin-bottom: 0;">
+          <div class="info-label">📊 Probabilidad</div>
+          <div class="info-value" style="font-size: 14px;">${probability}</div>
+        </div>
+        <div class="info-card" style="margin-bottom: 0;">
+          <div class="info-label">💥 Impacto</div>
+          <div class="info-value" style="font-size: 14px;">${impact}</div>
+        </div>
+        <div class="info-card" style="margin-bottom: 0;">
+          <div class="info-label">🏷️ Categoría</div>
+          <div class="info-value" style="font-size: 14px;">${category}</div>
+        </div>
+        <div class="info-card" style="margin-bottom: 0;">
+          <div class="info-label">🛡️ Estrategia</div>
+          <div class="info-value" style="font-size: 14px;">${response}</div>
+        </div>
+      </div>
+
+      ${risk?.responsePlan ? `
+      <div class="info-card" style="border-left-color: #10b981; background-color: #f0fdf4;">
+        <div class="info-label" style="color: #166534;">Plan de Respuesta</div>
+        <div style="font-size: 14px; color: #374151; line-height: 1.5;">${escapeHtml(risk.responsePlan).substring(0, 200)}${risk.responsePlan.length > 200 ? '...' : ''}</div>
+      </div>
+      ` : ''}
+
+      <div class="info-card">
+        <div class="info-label">👤 ${isNew ? 'Identificado' : 'Modificado'} por</div>
+        <div class="info-value">${escapeHtml(modifierName)}</div>
+      </div>
+
+      <div style="text-align: center; margin-top: 24px;">
+        <a href="https://gh-proyectos.web.app/risks/${risk?.projectId}" class="cta-button">Ver Matriz de Riesgos</a>
+      </div>
+    </div>
+    
+    <div class="email-footer">
+      <p style="margin: 0;">Este es un mensaje automático de la plataforma de Gestión de Proyectos de Grupo Heroica.</p>
+    </div>
+  `);
+}
+
 function buildProjectTagsUpdateEmail(projectName: string, modifierName: string, addedTags: string[], removedTags: string[]): string {
   let changesHtml = '';
   
@@ -1036,6 +1190,206 @@ export const onCommentCreated_CEVP = functions.database
     await processCommentNotification(comment, admin.app().database(dbUrl));
     return null;
   });
+
+// =============================================
+// TRIGGERS PARA ACTA DE CONSTITUCIÓN (CHARTER)
+// =============================================
+
+/**
+ * Lógica centralizada para notificaciones de Charter
+ */
+async function handleCharterWrite(change: functions.Change<functions.database.DataSnapshot>, context: functions.EventContext, db: admin.database.Database) {
+  const charterId = context.params.charterId;
+  const before = change.before.exists() ? change.before.val() : null;
+  const after = change.after.exists() ? change.after.val() : null;
+
+  // Si se eliminó, ignorar (no enviamos correo por eliminación de charter)
+  if (!after) return null;
+
+  const isNew = !before;
+  
+  functions.logger.log(`📄 Charter ${isNew ? 'created' : 'updated'}:`, charterId);
+
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    functions.logger.warn('⚠️ No access token available, skipping email');
+    return null;
+  }
+
+  if (!after.projectId) {
+    functions.logger.warn('⚠️ Charter has no projectId, skipping');
+    return null;
+  }
+
+  // Obtener información del proyecto
+  const projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
+  const project = projectSnap.val();
+  if (!project) {
+    functions.logger.warn('⚠️ Project not found for charter');
+    return null;
+  }
+
+  // Obtener nombre del modificador
+  const modifierId = after.updatedBy || after.createdBy;
+  let modifierName = 'Usuario';
+  if (modifierId) {
+    const modifierSnap = await db.ref(`/users/${modifierId}`).once('value');
+    const modifierData = modifierSnap.val();
+    modifierName = modifierData?.displayName || modifierData?.name || await getUserEmail(modifierId, db) || 'Usuario';
+  }
+
+  // Recopilar destinatarios (owner + owners compartidos + miembros)
+  const recipients = new Set<string>();
+  
+  if (project.ownerId) {
+    const email = await getUserEmail(project.ownerId, db);
+    if (email) recipients.add(email);
+  }
+
+  if (project.owners && Array.isArray(project.owners)) {
+    for (const oid of project.owners) {
+      const email = await getUserEmail(oid, db);
+      if (email) recipients.add(email);
+    }
+  }
+
+  if (project.memberIds && Array.isArray(project.memberIds)) {
+    for (const mid of project.memberIds) {
+      const email = await getUserEmail(mid, db);
+      if (email) recipients.add(email);
+    }
+  }
+
+  if (recipients.size === 0) {
+    functions.logger.warn('⚠️ No recipients for charter notification');
+    return null;
+  }
+
+  try {
+    const action = isNew ? 'creada' : 'actualizada';
+    const subject = `📄 Acta de Constitución ${action}: ${project.name}`;
+    const body = buildCharterEmail(after, project, isNew, modifierName);
+    
+    await sendEmail(accessToken, Array.from(recipients), subject, body);
+    functions.logger.log(`✅ Charter ${action} email sent to:`, Array.from(recipients).join(', '));
+  } catch (err) {
+    functions.logger.error('❌ Failed to send charter email:', err);
+  }
+
+  return null;
+}
+
+// Default DB
+export const onCharterWrite = functions.database.ref('/charters/{charterId}').onWrite((c, ctx) => handleCharterWrite(c, ctx, admin.database()));
+
+// CCCR
+export const onCharterWrite_CCCR = functions.database.instance('gh-proyectos-cccr').ref('/charters/{charterId}').onWrite((c, ctx) => handleCharterWrite(c, ctx, admin.app().database('https://gh-proyectos-cccr.firebaseio.com')));
+
+// CCCI
+export const onCharterWrite_CCCI = functions.database.instance('gh-proyectos-ccci').ref('/charters/{charterId}').onWrite((c, ctx) => handleCharterWrite(c, ctx, admin.app().database('https://gh-proyectos-ccci.firebaseio.com')));
+
+// CEVP
+export const onCharterWrite_CEVP = functions.database.instance('gh-proyectos-cevp').ref('/charters/{charterId}').onWrite((c, ctx) => handleCharterWrite(c, ctx, admin.app().database('https://gh-proyectos-cevp.firebaseio.com')));
+
+// =============================================
+// TRIGGERS PARA RIESGOS
+// =============================================
+
+/**
+ * Lógica centralizada para notificaciones de Riesgos
+ */
+async function handleRiskWrite(change: functions.Change<functions.database.DataSnapshot>, context: functions.EventContext, db: admin.database.Database) {
+  const riskId = context.params.riskId;
+  const before = change.before.exists() ? change.before.val() : null;
+  const after = change.after.exists() ? change.after.val() : null;
+
+  // Si se eliminó, ignorar (no enviamos correo por eliminación de riesgo)
+  if (!after) return null;
+
+  const isNew = !before;
+  
+  functions.logger.log(`⚠️ Risk ${isNew ? 'created' : 'updated'}:`, riskId);
+
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    functions.logger.warn('⚠️ No access token available, skipping email');
+    return null;
+  }
+
+  if (!after.projectId) {
+    functions.logger.warn('⚠️ Risk has no projectId, skipping');
+    return null;
+  }
+
+  // Obtener información del proyecto
+  const projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
+  const project = projectSnap.val();
+  if (!project) {
+    functions.logger.warn('⚠️ Project not found for risk');
+    return null;
+  }
+
+  // Obtener nombre del modificador
+  const modifierId = after.updatedBy || after.createdBy;
+  let modifierName = 'Usuario';
+  if (modifierId) {
+    const modifierSnap = await db.ref(`/users/${modifierId}`).once('value');
+    const modifierData = modifierSnap.val();
+    modifierName = modifierData?.displayName || modifierData?.name || await getUserEmail(modifierId, db) || 'Usuario';
+  }
+
+  // Recopilar destinatarios (owner + owners compartidos + responsable del riesgo)
+  const recipients = new Set<string>();
+  
+  if (project.ownerId) {
+    const email = await getUserEmail(project.ownerId, db);
+    if (email) recipients.add(email);
+  }
+
+  if (project.owners && Array.isArray(project.owners)) {
+    for (const oid of project.owners) {
+      const email = await getUserEmail(oid, db);
+      if (email) recipients.add(email);
+    }
+  }
+
+  // Notificar también al responsable del riesgo si existe
+  if (after.ownerId) {
+    const riskOwnerEmail = await getUserEmail(after.ownerId, db);
+    if (riskOwnerEmail) recipients.add(riskOwnerEmail);
+  }
+
+  if (recipients.size === 0) {
+    functions.logger.warn('⚠️ No recipients for risk notification');
+    return null;
+  }
+
+  try {
+    const action = isNew ? 'identificado' : 'actualizado';
+    const scoreInfo = getRiskScoreLabelEmail(after.riskScore || 0);
+    const subject = `⚠️ Riesgo ${action} (${scoreInfo.label}): ${after.title} - ${project.name}`;
+    const body = buildRiskEmail(after, project, isNew, modifierName);
+    
+    await sendEmail(accessToken, Array.from(recipients), subject, body);
+    functions.logger.log(`✅ Risk ${action} email sent to:`, Array.from(recipients).join(', '));
+  } catch (err) {
+    functions.logger.error('❌ Failed to send risk email:', err);
+  }
+
+  return null;
+}
+
+// Default DB
+export const onRiskWrite = functions.database.ref('/risks/{riskId}').onWrite((c, ctx) => handleRiskWrite(c, ctx, admin.database()));
+
+// CCCR
+export const onRiskWrite_CCCR = functions.database.instance('gh-proyectos-cccr').ref('/risks/{riskId}').onWrite((c, ctx) => handleRiskWrite(c, ctx, admin.app().database('https://gh-proyectos-cccr.firebaseio.com')));
+
+// CCCI
+export const onRiskWrite_CCCI = functions.database.instance('gh-proyectos-ccci').ref('/risks/{riskId}').onWrite((c, ctx) => handleRiskWrite(c, ctx, admin.app().database('https://gh-proyectos-ccci.firebaseio.com')));
+
+// CEVP
+export const onRiskWrite_CEVP = functions.database.instance('gh-proyectos-cevp').ref('/risks/{riskId}').onWrite((c, ctx) => handleRiskWrite(c, ctx, admin.app().database('https://gh-proyectos-cevp.firebaseio.com')));
 
 /**
  * Función HTTP para probar el envío de correos

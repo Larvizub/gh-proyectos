@@ -562,3 +562,88 @@ export const externalsService = {
     return () => off(externalsRef);
   }
 };
+
+// Acta de Constitución del Proyecto (Project Charter - PMI)
+export const charterService = {
+  get: async (projectId: string) => {
+    const dbToUse = resolveDatabase();
+    const charterRef = ref(dbToUse, `charters/${projectId}`);
+    const snapshot = await get(charterRef);
+    return snapshot.exists() ? snapshot.val() : null;
+  },
+
+  save: async (projectId: string, charter: any) => {
+    const dbToUse = resolveDatabase();
+    const charterRef = ref(dbToUse, `charters/${projectId}`);
+    await set(charterRef, { ...charter, projectId, updatedAt: Date.now() });
+  },
+
+  delete: async (projectId: string) => {
+    const dbToUse = resolveDatabase();
+    const charterRef = ref(dbToUse, `charters/${projectId}`);
+    await remove(charterRef);
+  },
+
+  listen: (projectId: string, callback: (charter: any) => void) => {
+    const dbToUse = resolveDatabase();
+    const charterRef = ref(dbToUse, `charters/${projectId}`);
+    onValue(charterRef, (snapshot) => {
+      callback(snapshot.exists() ? snapshot.val() : null);
+    });
+    return () => off(charterRef);
+  }
+};
+
+// Matriz de Riesgos (Risk Management - PMI)
+export const risksService = {
+  create: async (risk: any) => {
+    const dbToUse = resolveDatabase();
+    const risksRef = ref(dbToUse, 'risks');
+    const newRiskRef = push(risksRef);
+    const payload = { ...risk, id: newRiskRef.key, createdAt: Date.now(), updatedAt: Date.now() };
+    await set(newRiskRef, payload);
+    return newRiskRef.key;
+  },
+
+  update: async (riskId: string, updates: any) => {
+    const dbToUse = resolveDatabase();
+    const riskRef = ref(dbToUse, `risks/${riskId}`);
+    await update(riskRef, { ...updates, updatedAt: Date.now() });
+  },
+
+  delete: async (riskId: string) => {
+    const dbToUse = resolveDatabase();
+    const riskRef = ref(dbToUse, `risks/${riskId}`);
+    await remove(riskRef);
+  },
+
+  get: async (riskId: string) => {
+    const dbToUse = resolveDatabase();
+    const riskRef = ref(dbToUse, `risks/${riskId}`);
+    const snapshot = await get(riskRef);
+    return snapshot.exists() ? snapshot.val() : null;
+  },
+
+  getByProject: async (projectId: string) => {
+    const dbToUse = resolveDatabase();
+    const risksRef = ref(dbToUse, 'risks');
+    const q = query(risksRef, orderByChild('projectId'), equalTo(projectId));
+    const snapshot = await get(q);
+    if (!snapshot.exists()) return [];
+    const risks: any[] = [];
+    snapshot.forEach((child) => { risks.push(child.val()); });
+    return risks;
+  },
+
+  listenByProject: (projectId: string, callback: (risks: any[]) => void) => {
+    const dbToUse = resolveDatabase();
+    const risksRef = ref(dbToUse, 'risks');
+    const q = query(risksRef, orderByChild('projectId'), equalTo(projectId));
+    onValue(q, (snapshot) => {
+      const risks: any[] = [];
+      snapshot.forEach((child) => { risks.push(child.val()); });
+      callback(risks);
+    });
+    return () => off(q);
+  }
+};

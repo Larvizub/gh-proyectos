@@ -9,8 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
 import GanttChart from '@/components/tasks/GanttChart';
 import TaskEditorModal from '@/components/tasks/TaskEditorModal';
-import { LayoutList, LayoutGrid, Calendar, Plus, Clipboard, Activity, Eye, CheckCircle, ArrowDown, Minus, ArrowUp, Zap, Edit3, Trash2, User, ArrowLeft } from 'lucide-react';
+import { LayoutList, LayoutGrid, Calendar, Plus, Clipboard, Activity, Eye, CheckCircle, ArrowDown, Minus, ArrowUp, Zap, Edit3, Trash2, User, ArrowLeft, FileText } from 'lucide-react';
 import ProjectModal from '@/components/projects/ProjectModal';
+import ProjectCharterModal from '@/components/projects/ProjectCharterModal';
 import Select from '@/components/ui/select';
 import DatePicker from '@/components/ui/DatePicker';
 import PageLoader from '@/components/PageLoader';
@@ -35,6 +36,7 @@ export default function ProjectDetailsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [taskDeleteModalOpen, setTaskDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [charterModalOpen, setCharterModalOpen] = useState(false);
 
   // Task form
   const [title, setTitle] = useState('');
@@ -279,16 +281,29 @@ export default function ProjectDetailsPage() {
 
           {/* Fila 2: Filtro de tags y acción de nueva tarea */}
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            {project.tags && project.tags.length > 0 ? (
-              <div className="w-full sm:max-w-[240px]">
-                <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full">
-                  <option value="">Todos los tags</option>
-                  {project.tags.map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </Select>
-              </div>
-            ) : <div />}
+            <div className="flex items-center gap-2">
+              {project.tags && project.tags.length > 0 ? (
+                <div className="w-full sm:w-[200px]">
+                  <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full">
+                    <option value="">Todos los tags</option>
+                    {project.tags.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCharterModalOpen(true)}
+                className="h-9 gap-2 whitespace-nowrap"
+              >
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Acta de Constitución</span>
+                <span className="sm:hidden">Acta</span>
+              </Button>
+            </div>
             
             <Button
               onClick={() => setShowNewTaskForm(!showNewTaskForm)}
@@ -733,6 +748,15 @@ export default function ProjectDetailsPage() {
         <div>
           <CalendarView tasks={tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
         </div>
+      )}
+
+      {/* Modal Acta de Constitución */}
+      {project && (
+        <ProjectCharterModal
+          project={project}
+          open={charterModalOpen}
+          onClose={() => setCharterModalOpen(false)}
+        />
       )}
 
       

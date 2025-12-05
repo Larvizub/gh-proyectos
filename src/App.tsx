@@ -13,6 +13,8 @@ import ExternosPage from './pages/admin/ExternosPage';
 import UserProfilePage from './pages/UserProfilePage';
 import NewProjectPage from './pages/NewProjectPage';
 import ProjectDetailsPage from './pages/ProjectDetailsPage';
+import RisksMainPage from './pages/RisksMainPage';
+import RisksPage from './pages/RisksPage';
 import { Toaster } from 'sonner';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -50,6 +52,8 @@ function App() {
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:id" element={<ProjectDetailsPage />} />
               <Route path="/projects/new" element={<NewProjectPage />} />
+              <Route path="/risks" element={<RisksMainPage />} />
+              <Route path="/risks/:projectId" element={<RisksPage />} />
               <Route path="/profile" element={<UserProfilePage />} />
               <Route path="/admin" element={<Navigate to="/admin/users" />} />
               <Route path="/admin/users" element={<UsersPage />} />

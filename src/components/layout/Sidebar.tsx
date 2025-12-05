@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Home, FolderKanban, Users, User, LogOut, Key, Globe } from 'lucide-react';
+import { Home, FolderKanban, Users, User, LogOut, Key, Globe, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -22,6 +22,11 @@ const navigationItems = [
     title: 'Proyectos',
     href: '/projects',
     icon: FolderKanban,
+  },
+  {
+    title: 'Riesgos',
+    href: '/risks',
+    icon: AlertTriangle,
   },
 ];
 
