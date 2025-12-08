@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Task, SubTask } from '@/types';
+import { SubTask } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,23 +8,20 @@ import { ListTodo, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SubTasksProps {
-  task: Task;
-  onUpdate: (updates: Partial<Task>) => Promise<void>;
+  subTasks: SubTask[];
+  onChange: (subTasks: SubTask[]) => void;
 }
 
-export function SubTasks({ task, onUpdate }: SubTasksProps) {
+export function SubTasks({ subTasks, onChange }: SubTasksProps) {
   const [showForm, setShowForm] = useState(false);
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Obtener subtareas de la tarea
-  const subTasks: SubTask[] = task.subTasks || [];
-  
   const completedCount = subTasks.filter(st => st.completed).length;
   const totalCount = subTasks.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
-  const handleAddSubTask = async (e: React.FormEvent) => {
+  const handleAddSubTask = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newSubTaskTitle.trim()) return;
@@ -39,11 +36,8 @@ export function SubTasks({ task, onUpdate }: SubTasksProps) {
         createdAt: Date.now(),
       };
 
-      await onUpdate({
-        subTasks: [...subTasks, newSubTask],
-      });
+      onChange([...subTasks, newSubTask]);
 
-      toast.success('Subtarea agregada');
       setNewSubTaskTitle('');
       setShowForm(false);
     } catch (error: any) {
@@ -53,31 +47,23 @@ export function SubTasks({ task, onUpdate }: SubTasksProps) {
     }
   };
 
-  const handleToggleSubTask = async (subTaskId: string) => {
+  const handleToggleSubTask = (subTaskId: string) => {
     try {
       const updatedSubTasks = subTasks.map(st =>
         st.id === subTaskId ? { ...st, completed: !st.completed } : st
       );
 
-      await onUpdate({
-        subTasks: updatedSubTasks,
-      });
-
-      toast.success('Subtarea actualizada');
+      onChange(updatedSubTasks);
     } catch (error: any) {
       toast.error(error?.message || 'Error al actualizar subtarea');
     }
   };
 
-  const handleDeleteSubTask = async (subTaskId: string) => {
+  const handleDeleteSubTask = (subTaskId: string) => {
     try {
       const updatedSubTasks = subTasks.filter(st => st.id !== subTaskId);
 
-      await onUpdate({
-        subTasks: updatedSubTasks,
-      });
-
-      toast.success('Subtarea eliminada');
+      onChange(updatedSubTasks);
     } catch (error: any) {
       toast.error(error?.message || 'Error al eliminar subtarea');
     }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Task, TaskStatus, User } from '@/types';
+import { Task, TaskStatus, User, SubTask } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trash2, Calendar } from 'lucide-react';
@@ -37,6 +37,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
   const [fileInputKey, setFileInputKey] = useState(Date.now());
   const [assigneeInput, setAssigneeInput] = useState('');
   const [tagInput, setTagInput] = useState('');
+  const [subTasks, setSubTasks] = useState<SubTask[]>([]);
   const { user } = useAuth();
   
   // Estado inicial para detectar cambios
@@ -48,6 +49,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     dueInput: string;
     selectedAssignees: string[];
     selectedTags: string[];
+    subTasks: SubTask[];
   } | null>(null);
 
   useEffect(() => {
@@ -59,6 +61,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     const newDueInput = task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : '';
     const newAssignees = task.assigneeIds || [];
     const newTags = task.tags || [];
+    const newSubTasks = task.subTasks || [];
     
     setTitle(newTitle);
     setDescription(newDescription);
@@ -67,6 +70,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     setDueInput(newDueInput);
     setSelectedAssignees(newAssignees);
     setSelectedTags(newTags);
+    setSubTasks(newSubTasks);
     
     // Guardar estado inicial
     setInitialState({
@@ -77,6 +81,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
       dueInput: newDueInput,
       selectedAssignees: newAssignees,
       selectedTags: newTags,
+      subTasks: newSubTasks,
     });
   }, [task]);
   
@@ -88,7 +93,8 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     priority !== initialState.priority ||
     dueInput !== initialState.dueInput ||
     JSON.stringify(selectedAssignees.sort()) !== JSON.stringify(initialState.selectedAssignees.sort()) ||
-    JSON.stringify(selectedTags.sort()) !== JSON.stringify(initialState.selectedTags.sort())
+    JSON.stringify(selectedTags.sort()) !== JSON.stringify(initialState.selectedTags.sort()) ||
+    JSON.stringify(subTasks) !== JSON.stringify(initialState.subTasks)
   ) : false;
 
   useEffect(() => {
@@ -153,6 +159,9 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     if (dueTs) updates.dueDate = dueTs;
     // Assignee handling: multiple assignees
     updates.assigneeIds = selectedAssignees || [];
+    
+    // Subtareas
+    updates.subTasks = subTasks;
 
     await toast.promise(
       tasksService.update(task.id, updates),
@@ -168,19 +177,6 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
 
     if (onSaved) onSaved();
     onClose();
-  }
-
-  async function handleSubTaskUpdate(updates: Partial<Task>) {
-    if (!task) return;
-    
-    // Actualizar localmente para reflejar cambios inmediatos si es necesario
-    // Pero lo ideal es esperar a que el padre se actualice o usar un estado local optimista
-    // Por ahora confiamos en que el componente SubTasks maneja su estado o que el padre se refresca
-    
-    await tasksService.update(task.id, updates);
-    
-    // Si hay un callback de guardado, lo llamamos para refrescar la lista principal
-    if (onSaved) onSaved();
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -422,7 +418,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
 
               {/* Subtareas */}
               <div className="mt-6">
-                <SubTasks task={task} onUpdate={handleSubTaskUpdate} />
+                <SubTasks subTasks={subTasks} onChange={setSubTasks} />
               </div>
 
               <div className="mt-6">
