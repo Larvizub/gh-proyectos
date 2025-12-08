@@ -39,12 +39,13 @@ export default function RisksMainPage() {
     if (!user) return;
 
     let mounted = true;
+    const unsubs: Array<() => void> = [];
 
     (async () => {
       try {
         // Obtener proyectos del usuario
         const allProjects = await projectsService.getAll();
-        
+
         // Filtrar proyectos donde el usuario es miembro o propietario
         const userProjects = allProjects.filter((p: Project) => {
           const isOwner = p.ownerId === user.id || (p.owners && p.owners.includes(user.id));
@@ -52,46 +53,53 @@ export default function RisksMainPage() {
           return isOwner || isMember;
         });
 
-        // Obtener riesgos para cada proyecto
-        const projectsWithRisks: ProjectWithRisks[] = await Promise.all(
-          userProjects.map(async (project: Project) => {
-            try {
-              const risks = await risksService.getByProject(project.id);
-              const highRiskCount = risks.filter((r: Risk) => r.riskScore >= 10).length;
-              const maxRiskScore = risks.length > 0 
-                ? Math.max(...risks.map((r: Risk) => r.riskScore || 0)) 
-                : 0;
-              
-              return {
-                ...project,
-                riskCount: risks.length,
-                highRiskCount,
-                maxRiskScore,
-              };
-            } catch {
-              return {
-                ...project,
-                riskCount: 0,
-                highRiskCount: 0,
-                maxRiskScore: 0,
-              };
-            }
-          })
-        );
+        // Inicializar proyectos con contadores en 0
+        const baseProjects: ProjectWithRisks[] = userProjects.map((project: Project) => ({
+          ...project,
+          riskCount: 0,
+          highRiskCount: 0,
+          maxRiskScore: 0,
+        }));
 
         if (mounted) {
-          // Ordenar por maxRiskScore descendente
-          projectsWithRisks.sort((a, b) => b.maxRiskScore - a.maxRiskScore);
-          setProjects(projectsWithRisks);
+          // Ordenar (aunque todos son 0) y mostrar inmediatamente
+          baseProjects.sort((a, b) => b.maxRiskScore - a.maxRiskScore);
+          setProjects(baseProjects);
           setLoading(false);
         }
+
+        // Registrar listener por proyecto para mantener contadores en tiempo real
+        userProjects.forEach((project: Project) => {
+          const unsub = risksService.listenByProject(project.id, (risks: Risk[]) => {
+            if (!mounted) return;
+            try {
+              const highRiskCount = risks.filter((r: Risk) => (r.riskScore || 0) >= 10).length;
+              const maxRiskScore = risks.length > 0 ? Math.max(...risks.map((r: Risk) => r.riskScore || 0)) : 0;
+
+              setProjects(prev => {
+                const updated = prev.map(p => p.id === project.id ? ({
+                  ...p,
+                  riskCount: risks.length,
+                  highRiskCount,
+                  maxRiskScore,
+                }) : p);
+                // Mantener orden por maxRiskScore descendente
+                updated.sort((a, b) => b.maxRiskScore - a.maxRiskScore);
+                return updated;
+              });
+            } catch (err) {
+              console.warn('Error processing risks for project', project.id, err);
+            }
+          });
+          unsubs.push(unsub);
+        });
       } catch (err) {
         console.error('Error loading projects:', err);
         if (mounted) setLoading(false);
       }
     })();
 
-    return () => { mounted = false; };
+    return () => { mounted = false; unsubs.forEach(u => { try { u(); } catch (e) {} }); };
   }, [user]);
 
   const filteredProjects = projects.filter(p => 
