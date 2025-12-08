@@ -2,7 +2,7 @@ import { database, getDatabaseForSite, resolveDatabase, DATABASE_URLS, functions
 import { ref, push, set, get, update, remove, onValue, off, query, orderByChild, equalTo } from 'firebase/database';
 import { httpsCallable } from 'firebase/functions';
 import { getStorage, ref as storageRef, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Project, Task, Comment, User } from '@/types';
+import { Project, Task, Comment, User, Lesson } from '@/types';
 
 // Proyectos
 export const projectsService = {
@@ -647,3 +647,50 @@ export const risksService = {
     return () => off(q);
   }
 };
+
+export const lessonsService = {
+  create: async (lesson: Omit<Lesson, 'id'>) => {
+    const dbToUse = resolveDatabase();
+    const lessonsRef = ref(dbToUse, 'lessons');
+    const newLessonRef = push(lessonsRef);
+    const payload = { ...lesson, id: newLessonRef.key, createdAt: Date.now() };
+    await set(newLessonRef, payload);
+    return newLessonRef.key;
+  },
+
+  update: async (lessonId: string, updates: Partial<Lesson>) => {
+    const dbToUse = resolveDatabase();
+    const lessonRef = ref(dbToUse, `lessons/${lessonId}`);
+    await update(lessonRef, { ...updates });
+  },
+
+  delete: async (lessonId: string) => {
+    const dbToUse = resolveDatabase();
+    const lessonRef = ref(dbToUse, `lessons/${lessonId}`);
+    await remove(lessonRef);
+  },
+
+  getByProject: async (projectId: string) => {
+    const dbToUse = resolveDatabase();
+    const lessonsRef = ref(dbToUse, 'lessons');
+    const q = query(lessonsRef, orderByChild('projectId'), equalTo(projectId));
+    const snapshot = await get(q);
+    if (!snapshot.exists()) return [];
+    const lessons: Lesson[] = [];
+    snapshot.forEach((child) => { lessons.push(child.val()); });
+    return lessons;
+  },
+  
+  listenByProject: (projectId: string, callback: (lessons: Lesson[]) => void) => {
+    const dbToUse = resolveDatabase();
+    const lessonsRef = ref(dbToUse, 'lessons');
+    const q = query(lessonsRef, orderByChild('projectId'), equalTo(projectId));
+    onValue(q, (snapshot) => {
+      const lessons: Lesson[] = [];
+      snapshot.forEach((child) => { lessons.push(child.val()); });
+      callback(lessons);
+    });
+    return () => off(q);
+  }
+};
+

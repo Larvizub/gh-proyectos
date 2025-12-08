@@ -178,3 +178,27 @@ export interface FilterOptions {
   };
   searchQuery?: string;
 }
+
+export type LessonCategory = 
+  | 'Scope' 
+  | 'Schedule' 
+  | 'Cost' 
+  | 'Quality' 
+  | 'Resources' 
+  | 'Communication' 
+  | 'Risk' 
+  | 'Procurement' 
+  | 'Stakeholder'
+  | 'Other';
+
+export interface Lesson {
+  id: string;
+  projectId: string;
+  category: LessonCategory;
+  issue: string;
+  impact: string;
+  recommendation: string;
+  createdBy: string;
+  createdAt: number;
+}
+

@@ -38,6 +38,22 @@ export default function ProjectDetailsPage() {
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [charterModalOpen, setCharterModalOpen] = useState(false);
 
+  const allTasksCompleted = tasks.length > 0 && tasks.every(t => t.status === 'completed');
+
+  const handleCloseProject = async () => {
+    if (!project) return;
+    if (!confirm('¿Estás seguro de cerrar este proyecto? Esto lo moverá a la sección de Lecciones Aprendidas.')) return;
+    
+    try {
+      await projectsService.update(project.id, { status: 'completed' });
+      toast.success('Proyecto cerrado exitosamente');
+      navigate('/lessons');
+    } catch (error) {
+      console.error('Error closing project:', error);
+      toast.error('Error al cerrar el proyecto');
+    }
+  };
+
   // Task form
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
@@ -312,6 +328,17 @@ export default function ProjectDetailsPage() {
               <Plus className="h-4 w-4 mr-2" />
               Nueva Tarea
             </Button>
+
+            {allTasksCompleted && project?.status !== 'completed' && (
+              <Button
+                onClick={handleCloseProject}
+                variant="destructive"
+                className="hidden sm:inline-flex h-11 shadow-sm whitespace-nowrap"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Cierre del Proyecto
+              </Button>
+            )}
           </div>
 
           {/* Fila 3: Selector de vistas y botón nueva tarea para mobile */}
@@ -381,14 +408,26 @@ export default function ProjectDetailsPage() {
             </div>
             
             {/* Botón nueva tarea (solo mobile) */}
-            <Button 
-              onClick={() => setShowNewTaskForm(!showNewTaskForm)}
-              className="h-9 shadow-sm whitespace-nowrap sm:hidden"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              <span className="hidden xs:inline">Nueva Tarea</span>
-              <span className="xs:hidden">Nueva</span>
-            </Button>
+            <div className="flex gap-2 sm:hidden">
+              <Button 
+                onClick={() => setShowNewTaskForm(!showNewTaskForm)}
+                className="h-9 shadow-sm whitespace-nowrap"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                <span className="hidden xs:inline">Nueva Tarea</span>
+                <span className="xs:hidden">Nueva</span>
+              </Button>
+
+              {allTasksCompleted && project?.status !== 'completed' && (
+                <Button
+                  onClick={handleCloseProject}
+                  variant="destructive"
+                  className="h-9 shadow-sm whitespace-nowrap"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>

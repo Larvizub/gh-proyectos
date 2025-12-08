@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Home, FolderKanban, Users, User, LogOut, Key, Globe, AlertTriangle } from 'lucide-react';
+import { Home, FolderKanban, Users, User, LogOut, Key, Globe, AlertTriangle, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -27,6 +27,11 @@ const navigationItems = [
     title: 'Riesgos',
     href: '/risks',
     icon: AlertTriangle,
+  },
+  {
+    title: 'Lecciones',
+    href: '/lessons',
+    icon: BookOpen,
   },
 ];
 
