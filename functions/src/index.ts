@@ -795,6 +795,30 @@ function getTaskChanges(before: any, after: any): string[] {
   };
   if (getAssigneeStr(before) !== getAssigneeStr(after)) changes.push('Asignación de usuarios actualizada');
 
+  // Comparar subtareas
+  const beforeSubTasks = (before.subTasks || []) as any[];
+  const afterSubTasks = (after.subTasks || []) as any[];
+  
+  // 1. Subtareas agregadas
+  const added = afterSubTasks.filter(st => !beforeSubTasks.find(b => b.id === st.id));
+  added.forEach(st => changes.push(`Subtarea agregada: "${st.title}"`));
+
+  // 2. Subtareas completadas (o desmarcadas)
+  afterSubTasks.forEach(st => {
+    const old = beforeSubTasks.find(b => b.id === st.id);
+    if (old && old.completed !== st.completed) {
+      if (st.completed) {
+        changes.push(`Subtarea completada: "${st.title}"`);
+      } else {
+        changes.push(`Subtarea reactivada: "${st.title}"`);
+      }
+    }
+  });
+
+  // 3. Subtareas eliminadas
+  const deleted = beforeSubTasks.filter(st => !afterSubTasks.find(a => a.id === st.id));
+  deleted.forEach(st => changes.push(`Subtarea eliminada: "${st.title}"`));
+
   return changes;
 }
 
@@ -903,6 +927,14 @@ async function handleTaskWrite(change: functions.Change<functions.database.DataS
   if (project.ownerId) {
     const email = await getUserEmail(project.ownerId, db);
     if (email) recipients.add(email);
+  }
+
+  // Owners adicionales
+  if (project.owners && Array.isArray(project.owners)) {
+    for (const uid of project.owners) {
+      const email = await getUserEmail(uid, db);
+      if (email) recipients.add(email);
+    }
   }
 
   // Asignados

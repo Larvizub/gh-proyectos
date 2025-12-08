@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import DatePicker from '@/components/ui/DatePicker';
 import { useAuth } from '@/contexts/AuthContext';
 import { TaskComments } from './TaskComments';
+import { SubTasks } from './SubTasks';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -167,6 +168,19 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
 
     if (onSaved) onSaved();
     onClose();
+  }
+
+  async function handleSubTaskUpdate(updates: Partial<Task>) {
+    if (!task) return;
+    
+    // Actualizar localmente para reflejar cambios inmediatos si es necesario
+    // Pero lo ideal es esperar a que el padre se actualice o usar un estado local optimista
+    // Por ahora confiamos en que el componente SubTasks maneja su estado o que el padre se refresca
+    
+    await tasksService.update(task.id, updates);
+    
+    // Si hay un callback de guardado, lo llamamos para refrescar la lista principal
+    if (onSaved) onSaved();
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -405,6 +419,11 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
                     </label>
                   </div>
                 </div>
+
+              {/* Subtareas */}
+              <div className="mt-6">
+                <SubTasks task={task} onUpdate={handleSubTaskUpdate} />
+              </div>
 
               <div className="mt-6">
                 <TaskComments taskId={task.id} inputIdSuffix="inline" />
