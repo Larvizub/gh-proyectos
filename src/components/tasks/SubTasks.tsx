@@ -21,9 +21,7 @@ export function SubTasks({ subTasks, onChange }: SubTasksProps) {
   const totalCount = subTasks.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
-  const handleAddSubTask = (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleAddSubTask = () => {
     if (!newSubTaskTitle.trim()) return;
 
     setSubmitting(true);
@@ -83,6 +81,7 @@ export function SubTasks({ subTasks, onChange }: SubTasksProps) {
           <Button
             size="sm"
             variant="outline"
+            type="button"
             onClick={() => setShowForm(!showForm)}
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -105,17 +104,28 @@ export function SubTasks({ subTasks, onChange }: SubTasksProps) {
 
         {/* Formulario para nueva subtarea */}
         {showForm && (
-          <form onSubmit={handleAddSubTask} className="flex gap-2">
+          <div className="flex gap-2">
             <input
               type="text"
               value={newSubTaskTitle}
               onChange={(e) => setNewSubTaskTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddSubTask();
+                }
+              }}
               placeholder="Título de la subtarea..."
               className="flex-1 rounded-md border bg-input text-foreground placeholder:text-muted-foreground px-3 py-2 text-sm"
               disabled={submitting}
               autoFocus
             />
-            <Button type="submit" size="sm" disabled={submitting}>
+            <Button 
+              type="button" 
+              size="sm" 
+              disabled={submitting}
+              onClick={handleAddSubTask}
+            >
               Agregar
             </Button>
             <Button
@@ -129,7 +139,7 @@ export function SubTasks({ subTasks, onChange }: SubTasksProps) {
             >
               <X className="h-4 w-4" />
             </Button>
-          </form>
+          </div>
         )}
 
         {/* Lista de subtareas */}
@@ -161,6 +171,7 @@ export function SubTasks({ subTasks, onChange }: SubTasksProps) {
                 <Button
                   size="sm"
                   variant="ghost"
+                  type="button"
                   className="opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => handleDeleteSubTask(subTask.id)}
                 >
