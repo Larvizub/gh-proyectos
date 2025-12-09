@@ -13,6 +13,9 @@ type Props = {
 const MODULES: { key: string; label: string }[] = [
   { key: 'projects', label: 'Proyectos' },
   { key: 'tasks', label: 'Tareas' },
+  { key: 'changes', label: 'Control de Cambios' },
+  { key: 'lessons', label: 'Lecciones' },
+  { key: 'risks', label: 'Riesgos' },
   { key: 'comments', label: 'Comentarios' },
   { key: 'users', label: 'Usuarios' },
   { key: 'settings', label: 'Configuración' },
