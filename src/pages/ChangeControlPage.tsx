@@ -225,22 +225,26 @@ export default function ChangeControlPage() {
   if (selectedProject) {
     return (
       <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <Button variant="ghost" onClick={() => setSelectedProject(null)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Volver a Proyectos
           </Button>
-          <h1 className="text-2xl font-bold">{selectedProject.name} - Control de Cambios</h1>
-        </div>
 
-        <div className="flex justify-end">
-          <Button onClick={() => setIsAdding(!isAdding)}>
-            {isAdding ? 'Cancelar' : 'Nueva Solicitud de Cambio'}
-          </Button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-bold break-words">{selectedProject.name} - Control de Cambios</h1>
+          </div>
+
+          <div className="ml-auto w-full sm:w-auto">
+            <Button onClick={() => setIsAdding(!isAdding)} className="w-full sm:w-auto">
+              {isAdding ? 'Cancelar' : 'Nueva Solicitud de Cambio'}
+            </Button>
+          </div>
         </div>
 
         {isAdding && (
-          <Card className="border-l-4 border-l-primary">
+          <div className="mt-4 w-full flex justify-center">
+            <Card className="border-l-4 border-l-primary w-full max-w-3xl">
             <CardHeader>
               <CardTitle>Registrar Solicitud de Cambio (Change Request)</CardTitle>
               <CardDescription>Complete la información requerida para evaluar el impacto del cambio.</CardDescription>
@@ -373,13 +377,14 @@ export default function ChangeControlPage() {
                   />
                 </div>
 
-                <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setIsAdding(false)}>Cancelar</Button>
                   <Button type="submit">Crear Solicitud</Button>
                 </div>
               </form>
             </CardContent>
-          </Card>
+            </Card>
+          </div>
         )}
 
         <div className="grid gap-4">
