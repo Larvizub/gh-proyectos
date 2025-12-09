@@ -202,3 +202,36 @@ export interface Lesson {
   createdAt: number;
 }
 
+export type ChangeRequestStatus = 'pending' | 'approved' | 'rejected' | 'deferred';
+
+export interface ChangeRequest {
+  id: string;
+  projectId: string;
+  // Información del Cambio
+  title: string;
+  description: string;
+  justification: string; // Razón del cambio
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  
+  // Análisis de Impacto (PMI)
+  impactScope: string;
+  impactSchedule: string;
+  impactCost: string;
+  impactQuality: string;
+  impactResources: string;
+  impactRisks: string;
+  
+  proposedAction: string;
+  
+  // Estado y Aprobación
+  status: ChangeRequestStatus;
+  requesterId: string;
+  approverId?: string;
+  approvalDate?: number;
+  rejectionReason?: string;
+  
+  createdAt: number;
+  updatedAt: number;
+}
+
+

@@ -2,7 +2,7 @@ import { database, getDatabaseForSite, resolveDatabase, DATABASE_URLS, functions
 import { ref, push, set, get, update, remove, onValue, off, query, orderByChild, equalTo } from 'firebase/database';
 import { httpsCallable } from 'firebase/functions';
 import { getStorage, ref as storageRef, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Project, Task, Comment, User, Lesson } from '@/types';
+import { Project, Task, Comment, User, Lesson, ChangeRequest } from '@/types';
 
 // Proyectos
 export const projectsService = {
@@ -693,4 +693,51 @@ export const lessonsService = {
     return () => off(q);
   }
 };
+
+export const changeRequestsService = {
+  create: async (request: Omit<ChangeRequest, 'id'>) => {
+    const dbToUse = resolveDatabase();
+    const requestsRef = ref(dbToUse, 'changeRequests');
+    const newRequestRef = push(requestsRef);
+    const payload = { ...request, id: newRequestRef.key, createdAt: Date.now(), updatedAt: Date.now() };
+    await set(newRequestRef, payload);
+    return newRequestRef.key;
+  },
+
+  update: async (requestId: string, updates: Partial<ChangeRequest>) => {
+    const dbToUse = resolveDatabase();
+    const requestRef = ref(dbToUse, `changeRequests/${requestId}`);
+    await update(requestRef, { ...updates, updatedAt: Date.now() });
+  },
+
+  delete: async (requestId: string) => {
+    const dbToUse = resolveDatabase();
+    const requestRef = ref(dbToUse, `changeRequests/${requestId}`);
+    await remove(requestRef);
+  },
+
+  getByProject: async (projectId: string) => {
+    const dbToUse = resolveDatabase();
+    const requestsRef = ref(dbToUse, 'changeRequests');
+    const q = query(requestsRef, orderByChild('projectId'), equalTo(projectId));
+    const snapshot = await get(q);
+    if (!snapshot.exists()) return [];
+    const requests: ChangeRequest[] = [];
+    snapshot.forEach((child) => { requests.push(child.val()); });
+    return requests;
+  },
+
+  listenByProject: (projectId: string, callback: (requests: ChangeRequest[]) => void) => {
+    const dbToUse = resolveDatabase();
+    const requestsRef = ref(dbToUse, 'changeRequests');
+    const q = query(requestsRef, orderByChild('projectId'), equalTo(projectId));
+    onValue(q, (snapshot) => {
+      const requests: ChangeRequest[] = [];
+      snapshot.forEach((child) => { requests.push(child.val()); });
+      callback(requests);
+    });
+    return () => off(q);
+  }
+};
+
 

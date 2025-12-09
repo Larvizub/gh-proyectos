@@ -2037,3 +2037,144 @@ export const checkTaskDueDates = functions.pubsub.schedule('every day 08:00').ti
   
   functions.logger.log('✅ Verificación diaria completada.');
 });
+
+// Notificaciones de Solicitudes de Cambio
+
+function buildChangeRequestEmail(
+  request: any,
+  project: any,
+  requesterName: string,
+  isNew: boolean
+): string {
+  const title = isNew ? 'Nueva Solicitud de Cambio' : 'Actualización de Solicitud de Cambio';
+  const color = isNew ? '#3b82f6' : '#f59e0b'; // Blue for new, Amber for update
+
+  const content = `
+    <div class="email-header">
+      <div class="logo-container">
+        <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Grupo Heroica" class="logo-img">
+      </div>
+      <h1 class="email-title">${title}</h1>
+      <p class="email-subtitle">${project.name}</p>
+    </div>
+
+    <div class="email-body">
+      <div class="info-card" style="border-left-color: ${color};">
+        <div class="info-row">
+          <div class="info-label">Título</div>
+          <div class="info-value">${escapeHtml(request.title)}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Solicitado por</div>
+          <div class="info-value">${escapeHtml(requesterName)}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Estado</div>
+          <div class="badge" style="background-color: #e2e8f0; color: #475569; margin: 0;">${escapeHtml(request.status)}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Prioridad</div>
+          <div class="badge" style="background-color: #fee2e2; color: #991b1b; margin: 0;">${escapeHtml(request.priority)}</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <h3 style="color: #273c2a; margin-bottom: 8px;">Descripción</h3>
+        <p style="color: #475569; line-height: 1.6;">${escapeHtml(request.description)}</p>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <h3 style="color: #273c2a; margin-bottom: 8px;">Justificación</h3>
+        <p style="color: #475569; line-height: 1.6;">${escapeHtml(request.justification)}</p>
+      </div>
+
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="https://gh-proyectos.web.app/changes" class="cta-button" style="display: inline-block; background-color: #F2B05F; color: #273c2a; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Ver Solicitud</a>
+      </div>
+    </div>
+
+    <div class="email-footer">
+      <p>Este es un mensaje automático, por favor no responder.</p>
+      <p>&copy; ${new Date().getFullYear()} Grupo Heroica. Todos los derechos reservados.</p>
+    </div>
+  `;
+
+  return getEmailTemplate(content);
+}
+
+export const onChangeRequestWrite = functions.database.ref('/changeRequests/{requestId}')
+  .onWrite(async (change, context) => {
+    const requestId = context.params.requestId;
+    const before = change.before.exists() ? change.before.val() : null;
+    const after = change.after.exists() ? change.after.val() : null;
+
+    // Si fue eliminado, no hacemos nada por ahora
+    if (!after) return null;
+
+    const isNew = !before;
+    
+    // Si es actualización, verificamos si hubo cambios relevantes (estado, prioridad, etc.)
+    if (!isNew && before.status === after.status && before.priority === after.priority) {
+       return null; 
+    }
+
+    functions.logger.log(`📝 Change Request ${isNew ? 'created' : 'updated'}:`, requestId);
+
+    const db = admin.database();
+    const accessToken = await getAccessToken();
+    if (!accessToken) return null;
+
+    if (!after.projectId) return null;
+
+    // Obtener Proyecto
+    const projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
+    const project = projectSnap.val();
+    if (!project) return null;
+
+    // Obtener Solicitante
+    let requesterName = 'Usuario';
+    let requesterEmail = null;
+    if (after.requesterId) {
+      const reqSnap = await db.ref(`/users/${after.requesterId}`).once('value');
+      const reqData = reqSnap.val();
+      requesterEmail = reqData?.email || null;
+      requesterName = reqData?.displayName || reqData?.name || requesterEmail || 'Usuario';
+    }
+
+    // Recopilar destinatarios
+    const recipients = new Set<string>();
+
+    // 1. Propietario del Proyecto
+    if (project.ownerId) {
+      const email = await getUserEmail(project.ownerId, db);
+      if (email) recipients.add(email);
+    }
+
+    // 2. Propietarios compartidos
+    if (project.owners && Array.isArray(project.owners)) {
+      for (const uid of project.owners) {
+        const email = await getUserEmail(uid, db);
+        if (email) recipients.add(email);
+      }
+    }
+
+    // 3. Solicitante
+    if (requesterEmail) {
+      recipients.add(requesterEmail);
+    }
+
+    if (recipients.size === 0) return null;
+
+    try {
+      const subject = `${isNew ? 'Nueva Solicitud' : 'Actualización'}: ${after.title} - ${project.name}`;
+      const body = buildChangeRequestEmail(after, project, requesterName, isNew);
+      
+      await sendEmail(accessToken, Array.from(recipients), subject, body);
+      functions.logger.log(`✅ Change Request email sent to:`, Array.from(recipients).join(', '));
+    } catch (err) {
+      functions.logger.error('❌ Failed to send change request email:', err);
+    }
+
+    return null;
+  });
+

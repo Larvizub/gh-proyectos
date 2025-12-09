@@ -77,20 +77,19 @@ export function ProjectsPage() {
     return <PageLoader message="Cargando proyectos..." overlay={false} />;
   }
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <FolderKanban className="w-8 h-8 text-primary" />
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Proyectos
-          </h1>
-          <p className="text-muted-foreground mt-2 text-lg">
-            Gestiona tus proyectos y tareas
-          </p>
+          <h1 className="text-3xl font-bold">Proyectos</h1>
+          <p className="text-muted-foreground">Gestiona tus proyectos y tareas</p>
         </div>
-        <Button size="lg" className="shadow-lg hover:shadow-xl transition-shadow" onClick={() => navigate('/projects/new')}>
+        <div className="ml-auto">
+          <Button size="lg" className="shadow-lg hover:shadow-xl transition-shadow" onClick={() => navigate('/projects/new')}>
           <Plus className="mr-2 h-5 w-5" />
           Nuevo Proyecto
-        </Button>
+          </Button>
+        </div>
       </div>
 
       {projects.length === 0 ? (
