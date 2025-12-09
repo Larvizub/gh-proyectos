@@ -225,14 +225,14 @@ export default function ChangeControlPage() {
   if (selectedProject) {
     return (
       <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center gap-4 flex-wrap">
-          <Button variant="ghost" onClick={() => setSelectedProject(null)}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver a Proyectos
-          </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button type="button" onClick={() => setSelectedProject(null)} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary focus:outline-none">
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Volver a Proyectos</span>
+          </button>
 
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold break-words">{selectedProject.name} - Control de Cambios</h1>
+            <h1 className="text-xl sm:text-2xl font-bold leading-snug line-clamp-3">{selectedProject.name} - Control de Cambios</h1>
           </div>
 
           <div className="ml-auto w-full sm:w-auto">
