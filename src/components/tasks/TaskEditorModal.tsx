@@ -291,7 +291,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
               <textarea value={description} onChange={e => setDescription((e.target as HTMLTextAreaElement).value)} className="w-full rounded-lg border-2 border-border bg-input px-3 py-2" rows={4} disabled={!canEdit} />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Estado</label>
                 <Select value={status} onChange={v => canEdit && setStatus(v as TaskStatus)}>
@@ -310,103 +310,98 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
                   <option value="urgent">Urgente</option>
                 </Select>
               </div>
-              <div>
-                <label className="text-sm font-medium">Fecha de vencimiento</label>
-                <DatePicker value={dueInput} onChange={v => canEdit && setDueInput(v)} placeholder="dd/mm/aaaa" ariaLabel="Fecha de vencimiento" />
-              </div>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Fecha de inicio</label>
+                <label className="text-sm font-medium mb-1 block">Fecha de inicio</label>
                 <DatePicker value={startInput} onChange={v => canEdit && setStartInput(v)} placeholder="dd/mm/aaaa" ariaLabel="Fecha de inicio" />
               </div>
               <div>
-                <label className="text-sm font-medium">Asignar a</label>
-                <div className="mt-2">
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {selectedAssignees.length === 0 ? (
-                      <span className="text-sm text-muted-foreground">Sin asignar</span>
-                    ) : (
-                      users.filter(u => selectedAssignees.includes(u.id)).map(u => (
-                        <span key={u.id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/70 text-sm text-foreground border border-muted shadow-sm">
-                          <span className="truncate max-w-[14rem] font-medium">{u.displayName || u.email}</span>
-                          <button
-                            type="button"
-                            title={`Desasignar ${u.displayName || u.email}`}
-                            className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-muted/10 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                            onClick={() => setSelectedAssignees(prev => prev.filter(id => id !== u.id))}
-                            aria-label={`Desasignar ${u.displayName || u.email}`}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))
-                    )}
-                  </div>
+                <label className="text-sm font-medium mb-1 block">Fecha de vencimiento</label>
+                <DatePicker value={dueInput} onChange={v => canEdit && setDueInput(v)} placeholder="dd/mm/aaaa" ariaLabel="Fecha de vencimiento" />
+              </div>
+            </div>
 
-                  <div className="flex gap-2">
-                    <input list="assignees-list" value={assigneeInput} onChange={e => setAssigneeInput(e.target.value)} placeholder={selectedAssignees.length === 0 ? 'Añadir asignado por nombre o email' : 'Añadir más...'} className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
-                    <button type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground" onClick={() => {
-                      if (!canEdit) return;
-                      const val = (assigneeInput || '').trim();
-                      if (!val) return;
-                      const found = users.find(u => (u.email || '').toLowerCase() === val.toLowerCase() || (u.displayName || '').toLowerCase() === val.toLowerCase());
-                      if (found) {
-                        setSelectedAssignees(prev => prev.includes(found.id) ? prev : [...prev, found.id]);
+            <div>
+              <label className="text-sm font-medium mb-1 block">Asignar a</label>
+              <div className="mt-2">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {selectedAssignees.length === 0 ? (
+                    <span className="text-sm text-muted-foreground">Sin asignar</span>
+                  ) : (
+                    users.filter(u => selectedAssignees.includes(u.id)).map(u => (
+                      <span key={u.id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/70 text-sm text-foreground border border-muted shadow-sm">
+                        <span className="truncate max-w-[14rem] font-medium">{u.displayName || u.email}</span>
+                        <button type="button" title={`Desasignar ${u.displayName || u.email}`} className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-muted/10 hover:bg-destructive/10 text-muted-foreground hover:text-destructive" onClick={() => setSelectedAssignees(prev => prev.filter(id => id !== u.id))} aria-label={`Desasignar ${u.displayName || u.email}`}>×</button>
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <input list="assignees-list" value={assigneeInput} onChange={e => setAssigneeInput(e.target.value)} placeholder={selectedAssignees.length === 0 ? 'Añadir asignado por nombre o email' : 'Añadir más...'} className="flex-1 h-10 rounded-md border border-input bg-input px-3 text-sm" />
+                  <button type="button" className="inline-flex items-center gap-2 px-4 h-10 rounded-md bg-primary text-primary-foreground" onClick={() => {
+                    if (!canEdit) return;
+                    const val = (assigneeInput || '').trim();
+                    if (!val) return;
+                    const found = users.find(u => (u.email || '').toLowerCase() === val.toLowerCase() || (u.displayName || '').toLowerCase() === val.toLowerCase());
+                    if (found) {
+                      setSelectedAssignees(prev => prev.includes(found.id) ? prev : [...prev, found.id]);
+                      setAssigneeInput('');
+                    } else {
+                      const partial = users.find(u => (u.displayName || '').toLowerCase().includes(val.toLowerCase()) || (u.email || '').toLowerCase().includes(val.toLowerCase()));
+                      if (partial) {
+                        setSelectedAssignees(prev => prev.includes(partial.id) ? prev : [...prev, partial.id]);
                         setAssigneeInput('');
-                      } else {
-                        const partial = users.find(u => (u.displayName || '').toLowerCase().includes(val.toLowerCase()) || (u.email || '').toLowerCase().includes(val.toLowerCase()));
-                        if (partial) {
-                          setSelectedAssignees(prev => prev.includes(partial.id) ? prev : [...prev, partial.id]);
-                          setAssigneeInput('');
-                        }
                       }
+                    }
+                  }}>Añadir</button>
+                </div>
+                <datalist id="assignees-list">
+                  {users.map(u => <option key={u.id} value={u.email || u.id}>{u.displayName || u.email}</option>)}
+                </datalist>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="text-sm font-medium mb-1 block">Tags del proyecto</label>
+              <div className="mt-2">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {selectedTags.length === 0 ? (
+                    <span className="text-sm text-muted-foreground">Sin tags seleccionados</span>
+                  ) : (
+                    selectedTags.map(t => (
+                      <span key={t} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/70 text-sm">
+                        <span className="truncate max-w-[14rem] font-medium">{t}</span>
+                        <button type="button" title={`Remover ${t}`} className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-muted/10 hover:bg-destructive/10 text-muted-foreground hover:text-destructive" onClick={() => setSelectedTags(prev => prev.filter(x => x !== t))}>×</button>
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <input list="project-tags-list" value={tagInput} onChange={e => setTagInput(e.target.value)} placeholder={selectedTags.length === 0 ? 'Añadir tag del proyecto' : 'Añadir más tags...'} className="flex-1 h-10 rounded-md border border-input bg-input px-3 text-sm" />
+                    <button type="button" className="inline-flex items-center gap-2 px-4 h-10 rounded-md bg-primary text-primary-foreground" onClick={() => {
+                      if (!canEdit) return;
+                      const raw = (tagInput || '').trim();
+                      if (!raw) return;
+                      // buscar coincidencia case-insensitive en projectTags
+                      const match = projectTags.find(pt => pt.toLowerCase() === raw.toLowerCase());
+                      if (!match) {
+                        toast.error('Tag no válido. Selecciona uno de la lista del proyecto');
+                        return;
+                      }
+                      if (!selectedTags.includes(match)) setSelectedTags(prev => [...prev, match]);
+                      setTagInput('');
                     }}>Añadir</button>
                   </div>
-                  <datalist id="assignees-list">
-                    {users.map(u => <option key={u.id} value={u.email || u.id}>{u.displayName || u.email}</option>)}
+                  <datalist id="project-tags-list">
+                    {projectTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
                   </datalist>
                 </div>
               </div>
-
-            <div>
-              <label className="text-sm font-medium">Tags del proyecto</label>
-                  <div className="mt-2">
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {selectedTags.length === 0 ? (
-                        <span className="text-sm text-muted-foreground">Sin tags seleccionados</span>
-                      ) : (
-                        selectedTags.map(t => (
-                          <span key={t} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/70 text-sm">
-                            <span className="truncate max-w-[14rem] font-medium">{t}</span>
-                            <button type="button" title={`Remover ${t}`} className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-muted/10 hover:bg-destructive/10 text-muted-foreground hover:text-destructive" onClick={() => setSelectedTags(prev => prev.filter(x => x !== t))}>×</button>
-                          </span>
-                        ))
-                      )}
-                    </div>
-
-                    <div className="relative">
-                      <div className="flex gap-2">
-                        <input list="project-tags-list" value={tagInput} onChange={e => setTagInput(e.target.value)} placeholder={selectedTags.length === 0 ? 'Añadir tag del proyecto' : 'Añadir más tags...'} className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
-                        <button type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground" onClick={() => {
-                          if (!canEdit) return;
-                          const raw = (tagInput || '').trim();
-                          if (!raw) return;
-                          // buscar coincidencia case-insensitive en projectTags
-                          const match = projectTags.find(pt => pt.toLowerCase() === raw.toLowerCase());
-                          if (!match) {
-                            toast.error('Tag no válido. Selecciona uno de la lista del proyecto');
-                            return;
-                          }
-                          if (!selectedTags.includes(match)) setSelectedTags(prev => [...prev, match]);
-                          setTagInput('');
-                        }}>Añadir</button>
-                      </div>
-                      <datalist id="project-tags-list">
-                        {projectTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
-                      </datalist>
-                    </div>
-                  </div>
             </div>
 
             {/* File attachments */}
