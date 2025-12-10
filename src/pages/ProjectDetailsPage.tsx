@@ -63,6 +63,10 @@ export default function ProjectDetailsPage() {
   const [startDate, setStartDate] = useState<string>('');
   const [newTaskSelectedTags, setNewTaskSelectedTags] = useState<string[]>([]);
   const [newTaskOpenTags, setNewTaskOpenTags] = useState(false);
+  const [newTaskAssignees, setNewTaskAssignees] = useState<string[]>([]);
+  const [newTaskAssigneeInput, setNewTaskAssigneeInput] = useState('');
+  const [newTaskFiles, setNewTaskFiles] = useState<File[]>([]);
+  const [newTaskFileInputKey, setNewTaskFileInputKey] = useState(Date.now());
 
   // Helper: convert a YYYY-MM-DD date string to a local midnight timestamp (ms)
   const dateStringToTimestamp = (s: string) => {
@@ -154,7 +158,7 @@ export default function ProjectDetailsPage() {
   // store timestamps (ms) if provided (date-only, local midnight)
   dueDate: dueDate ? dateStringToTimestamp(dueDate) : undefined,
   startDate: startDate ? dateStringToTimestamp(startDate) : undefined,
-      assigneeIds: [],
+      assigneeIds: newTaskAssignees || [],
       creatorId: user.id,
       tags: newTaskSelectedTags || [],
       attachments: [],
@@ -162,8 +166,21 @@ export default function ProjectDetailsPage() {
       updatedAt: Date.now(),
     };
 
+    let newTaskId: string | null = null;
     await toast.promise(
-      tasksService.create(payload as any),
+      (async () => {
+        newTaskId = await tasksService.create(payload as any);
+        // if files were attached, upload them and let tasksService.append attachments
+        if (newTaskFiles && newTaskFiles.length > 0 && newTaskId) {
+          for (const f of newTaskFiles) {
+            try {
+              await tasksService.uploadAttachment(newTaskId, f, user.id);
+            } catch (err) {
+              console.warn('Failed uploading attachment for new task', err);
+            }
+          }
+        }
+      })(),
       {
         loading: 'Creando tarea...',
         success: 'Tarea creada correctamente',
@@ -178,6 +195,10 @@ export default function ProjectDetailsPage() {
     setDueDate('');
     setStartDate('');
     setNewTaskSelectedTags([]);
+    setNewTaskAssignees([]);
+    setNewTaskAssigneeInput('');
+    setNewTaskFiles([]);
+    setNewTaskFileInputKey(Date.now());
     setShowNewTaskForm(false);
   }
 
@@ -668,6 +689,78 @@ export default function ProjectDetailsPage() {
                 </div>
               </div>
               
+              <div>
+                <label className="text-sm font-medium">Asignar a</label>
+                <div className="mt-2">
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {newTaskAssignees.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">Sin asignar</span>
+                    ) : (
+                      newTaskAssignees.map(id => {
+                        const u = usersMap[id];
+                        return (
+                          <span key={id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/70 text-sm">
+                            <span className="truncate max-w-[14rem]">{u?.displayName || u?.email || id}</span>
+                            <button type="button" className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-muted/10 hover:bg-destructive/10 text-muted-foreground hover:text-destructive" onClick={() => setNewTaskAssignees(prev => prev.filter(x => x !== id))}>×</button>
+                          </span>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input list="newtask-assignees-list" value={newTaskAssigneeInput} onChange={e => setNewTaskAssigneeInput(e.target.value)} placeholder={newTaskAssignees.length === 0 ? 'Añadir asignado por nombre o email' : 'Añadir más...'} className="flex-1 h-10 rounded-md border border-input bg-input px-3 text-sm" />
+                    <button type="button" className="inline-flex items-center gap-2 px-4 h-10 rounded-md bg-primary text-primary-foreground" onClick={() => {
+                      const val = (newTaskAssigneeInput || '').trim();
+                      if (!val) return;
+                      // try to find by email or displayName
+                      const found = Object.values(usersMap).find((u: any) => (u.email || '').toLowerCase() === val.toLowerCase() || (u.displayName || '').toLowerCase() === val.toLowerCase());
+                      if (found && found.id) {
+                        setNewTaskAssignees(prev => prev.includes(found.id) ? prev : [...prev, found.id]);
+                        setNewTaskAssigneeInput('');
+                        return;
+                      }
+                      // try partial match
+                      const partial = Object.values(usersMap).find((u: any) => (u.displayName || '').toLowerCase().includes(val.toLowerCase()) || (u.email || '').toLowerCase().includes(val.toLowerCase()));
+                      if (partial && partial.id) {
+                        setNewTaskAssignees(prev => prev.includes(partial.id) ? prev : [...prev, partial.id]);
+                        setNewTaskAssigneeInput('');
+                      }
+                    }}>Añadir</button>
+                  </div>
+                  <datalist id="newtask-assignees-list">
+                    {Object.values(usersMap).map((u: any) => <option key={u.id} value={u.email || u.id}>{u.displayName || u.email}</option>)}
+                  </datalist>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Adjuntos (opcional)</label>
+                <div className="mt-2">
+                  <div className="flex items-center gap-3">
+                    <input id="newtask-file-input" key={String(newTaskFileInputKey)} type="file" multiple onChange={e => {
+                      const files = e.target.files ? Array.from(e.target.files) : [];
+                      setNewTaskFiles(files);
+                    }} className="hidden" />
+                    <label htmlFor="newtask-file-input" className={`inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground cursor-pointer` }>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 12v9m0-9l3.5 3.5M12 12L8.5 15.5M16 5l-4-4-4 4"/></svg>
+                      <span className="text-sm">Elegir archivos</span>
+                    </label>
+                    <span className="text-sm text-muted-foreground">{newTaskFiles.length === 0 ? 'Sin archivos seleccionados' : `${newTaskFiles.length} archivo(s) seleccionado(s)`}</span>
+                  </div>
+                  {newTaskFiles.length > 0 && (
+                    <div className="mt-2 grid gap-2">
+                      {newTaskFiles.map((f, idx) => (
+                        <div key={idx} className="flex items-center justify-between bg-muted/5 rounded px-3 py-2 text-sm">
+                          <div className="truncate mr-2">{f.name}</div>
+                          <button type="button" className="text-destructive" onClick={() => setNewTaskFiles(prev => prev.filter((_, i) => i !== idx))}>Remover</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <Button type="submit" className="flex-1 h-11">
                   <Plus className="mr-2 h-4 w-4" />
