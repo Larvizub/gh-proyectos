@@ -27,6 +27,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
   const [status, setStatus] = useState<TaskStatus>('todo');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
   const [dueInput, setDueInput] = useState('');
+  const [startInput, setStartInput] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [projectTags, setProjectTags] = useState<string[]>([]);
@@ -47,6 +48,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     status: TaskStatus;
     priority: 'low' | 'medium' | 'high' | 'urgent';
     dueInput: string;
+    startInput?: string;
     selectedAssignees: string[];
     selectedTags: string[];
     subTasks: SubTask[];
@@ -59,6 +61,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     const newStatus = task.status ?? 'todo';
     const newPriority = task.priority ?? 'medium';
     const newDueInput = task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : '';
+    const newStartInput = task.startDate ? new Date(task.startDate).toISOString().slice(0, 10) : '';
     const newAssignees = task.assigneeIds || [];
     const newTags = task.tags || [];
     const newSubTasks = task.subTasks || [];
@@ -68,6 +71,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     setStatus(newStatus);
     setPriority(newPriority);
     setDueInput(newDueInput);
+    setStartInput(newStartInput);
     setSelectedAssignees(newAssignees);
     setSelectedTags(newTags);
     setSubTasks(newSubTasks);
@@ -79,6 +83,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
       status: newStatus,
       priority: newPriority,
       dueInput: newDueInput,
+      startInput: newStartInput,
       selectedAssignees: newAssignees,
       selectedTags: newTags,
       subTasks: newSubTasks,
@@ -92,6 +97,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
     status !== initialState.status ||
     priority !== initialState.priority ||
     dueInput !== initialState.dueInput ||
+    startInput !== (initialState.startInput || '') ||
     JSON.stringify(selectedAssignees.sort()) !== JSON.stringify(initialState.selectedAssignees.sort()) ||
     JSON.stringify(selectedTags.sort()) !== JSON.stringify(initialState.selectedTags.sort()) ||
     JSON.stringify(subTasks) !== JSON.stringify(initialState.subTasks)
@@ -157,6 +163,16 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
 
     const dueTs = dateInputToTimestamp(dueInput);
     if (dueTs) updates.dueDate = dueTs;
+    // start date handling: only include change if user modified startInput vs initial
+    const startTs = dateInputToTimestamp(startInput);
+    if (initialState && startInput !== (initialState.startInput || '')) {
+      if (startTs) {
+        updates.startDate = startTs;
+      } else {
+        // user cleared start date -> remove it by setting null
+        updates.startDate = null as any;
+      }
+    }
     // Assignee handling: multiple assignees
     updates.assigneeIds = selectedAssignees || [];
     
@@ -299,7 +315,11 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
                 <DatePicker value={dueInput} onChange={v => canEdit && setDueInput(v)} placeholder="dd/mm/aaaa" ariaLabel="Fecha de vencimiento" />
               </div>
             </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Fecha de inicio</label>
+                <DatePicker value={startInput} onChange={v => canEdit && setStartInput(v)} placeholder="dd/mm/aaaa" ariaLabel="Fecha de inicio" />
+              </div>
               <div>
                 <label className="text-sm font-medium">Asignar a</label>
                 <div className="mt-2">
