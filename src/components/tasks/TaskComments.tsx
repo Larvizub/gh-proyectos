@@ -9,6 +9,7 @@ import { MessageSquare, Send, Plus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { PageLoader } from '@/components/PageLoader';
 
 interface TaskCommentsProps {
   taskId: string;
@@ -68,7 +69,7 @@ export function TaskComments({ taskId, inputIdSuffix }: TaskCommentsProps) {
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
-          Cargando comentarios...
+          <PageLoader overlay={false} message="Cargando comentarios..." />
         </CardContent>
       </Card>
     );

@@ -9,7 +9,7 @@ import { projectsService, tasksService } from '@/services/firebase.service';
 import ProjectModal from '@/components/projects/ProjectModal';
 import { Project } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import PageLoader from '@/components/PageLoader';
+import { PageLoader } from '@/components/PageLoader';
 
 export function ProjectsPage() {
   const { user } = useAuth();
@@ -39,7 +39,8 @@ export function ProjectsPage() {
         const ids = new Set<string>();
         tasks.forEach((t) => {
           // detectar asignaciones en varios formatos
-          const assigned = t?.assignedTo;
+          const taskAny = t as any;
+          const assigned = taskAny.assignedTo;
           if (assigned) {
             if (typeof assigned === 'string') {
               if (assigned === user.id || String(assigned).toLowerCase() === String(user.email).toLowerCase()) {
@@ -51,7 +52,7 @@ export function ProjectsPage() {
               }
             }
           }
-          const assigneeIds = t?.assigneeIds || t?.assignedUserIds || null;
+          const assigneeIds = t.assigneeIds || taskAny.assignedUserIds || null;
           if (Array.isArray(assigneeIds) && assigneeIds.includes(user.id)) {
             if (t.projectId) ids.add(t.projectId);
           }

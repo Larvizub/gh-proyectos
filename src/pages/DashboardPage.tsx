@@ -3,9 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/AuthContext';
 import { projectsService } from '@/services/firebase.service';
 import { tasksService } from '@/services/firebase.service';
-import { DonutChart, BarChart, StackedBar, PieChart, LineChart } from '@/components/ui/Charts';
+import { BarChart, StackedBar, PieChart, LineChart } from '@/components/ui/Charts';
 import { Project, Task } from '@/types';
 import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { PageLoader } from '@/components/PageLoader';
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -95,11 +96,7 @@ export function DashboardPage() {
   });
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Cargando...</p>
-      </div>
-    );
+    return <PageLoader overlay={false} />;
   }
 
   return (

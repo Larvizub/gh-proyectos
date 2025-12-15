@@ -18,16 +18,13 @@ import RisksPage from './pages/RisksPage';
 import LessonsPage from './pages/LessonsPage';
 import ChangeControlPage from './pages/ChangeControlPage';
 import { Toaster } from 'sonner';
+import { PageLoader } from '@/components/PageLoader';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { firebaseUser, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-muted-foreground">Cargando...</p>
-      </div>
-    );
+    return <PageLoader />;
   }
 
   return firebaseUser ? <>{children}</> : <Navigate to="/login" />;

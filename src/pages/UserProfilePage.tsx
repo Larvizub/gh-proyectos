@@ -7,6 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Label } from '@/components/ui/label';
 import { User as UserType } from '@/types';
 import { Input } from '@/components/ui/input';
+import { PageLoader } from '@/components/PageLoader';
 
 export default function UserProfilePage() {
   const { user: authUser, signOut } = useAuth();
@@ -77,7 +78,7 @@ export default function UserProfilePage() {
         </CardHeader>
         <CardContent className="p-6">
           {loading ? (
-            <p>Cargando perfil...</p>
+            <PageLoader overlay={false} message="Cargando perfil..." />
           ) : !user ? (
             <p className="text-muted-foreground">No se encontró información del usuario.</p>
           ) : (

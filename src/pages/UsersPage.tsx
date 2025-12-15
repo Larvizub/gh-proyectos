@@ -3,6 +3,7 @@ import { usersService, rolesService } from '@/services/firebase.service';
 import Select from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { User } from '@/types';
+import { PageLoader } from '@/components/PageLoader';
 
 function IconEdit() {
   return (
@@ -93,7 +94,7 @@ export default function UsersPage() {
       </div>
 
       {loading ? (
-        <p>Cargando usuarios...</p>
+        <PageLoader overlay={false} message="Cargando usuarios..." />
       ) : users.length === 0 ? (
         <Card>
           <CardContent className="p-6 text-muted-foreground">No hay usuarios registrados.</CardContent>

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { PageLoader } from '@/components/PageLoader';
 
 export default function ExternosPage() {
   const { user } = useAuth();
@@ -107,7 +108,7 @@ export default function ExternosPage() {
           </div>
 
           {loading ? (
-            <p>Cargando...</p>
+            <PageLoader overlay={false} />
           ) : (
             <ul className="flex flex-col gap-2">
               {items.length === 0 ? <li className="text-muted-foreground">No hay correos registrados.</li> : null}
