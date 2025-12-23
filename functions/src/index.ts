@@ -795,30 +795,6 @@ function getTaskChanges(before: any, after: any): string[] {
   };
   if (getAssigneeStr(before) !== getAssigneeStr(after)) changes.push('Asignación de usuarios actualizada');
 
-  // Comparar subtareas
-  const beforeSubTasks = (before.subTasks || []) as any[];
-  const afterSubTasks = (after.subTasks || []) as any[];
-  
-  // 1. Subtareas agregadas
-  const added = afterSubTasks.filter(st => !beforeSubTasks.find(b => b.id === st.id));
-  added.forEach(st => changes.push(`Subtarea agregada: "${st.title}"`));
-
-  // 2. Subtareas completadas (o desmarcadas)
-  afterSubTasks.forEach(st => {
-    const old = beforeSubTasks.find(b => b.id === st.id);
-    if (old && old.completed !== st.completed) {
-      if (st.completed) {
-        changes.push(`Subtarea completada: "${st.title}"`);
-      } else {
-        changes.push(`Subtarea reactivada: "${st.title}"`);
-      }
-    }
-  });
-
-  // 3. Subtareas eliminadas
-  const deleted = beforeSubTasks.filter(st => !afterSubTasks.find(a => a.id === st.id));
-  deleted.forEach(st => changes.push(`Subtarea eliminada: "${st.title}"`));
-
   return changes;
 }
 
@@ -927,14 +903,6 @@ async function handleTaskWrite(change: functions.Change<functions.database.DataS
   if (project.ownerId) {
     const email = await getUserEmail(project.ownerId, db);
     if (email) recipients.add(email);
-  }
-
-  // Owners adicionales
-  if (project.owners && Array.isArray(project.owners)) {
-    for (const uid of project.owners) {
-      const email = await getUserEmail(uid, db);
-      if (email) recipients.add(email);
-    }
   }
 
   // Asignados
@@ -1952,20 +1920,26 @@ export const checkTaskDueDates = functions.pubsub.schedule('every day 08:00').ti
         let emailBodyTitle = '';
         let emailMessage = '';
 
-        // Condición 1: Vence mañana (está en el rango de mañana)
-        if (dueDate >= tomorrowStart && dueDate < tomorrowEnd) {
-          shouldNotify = true;
-          emailSubject = `🔔 Recordatorio: Tarea próxima a vencer - ${t.title}`;
-          emailBodyTitle = 'Tarea próxima a vencer';
-          emailMessage = `La tarea "<strong>${t.title}</strong>" vence mañana.`;
-        }
-        // Condición 2: Ya venció (es menor al inicio de hoy)
-        // Se envía recordatorio diario mientras siga vencida y no completada
-        else if (dueDate < todayStart) {
+        // Condición 1: Ya venció (es menor al inicio de hoy)
+        if (dueDate < todayStart) {
           shouldNotify = true;
           emailSubject = `⚠️ Alerta: Tarea vencida - ${t.title}`;
           emailBodyTitle = 'Tarea Vencida';
           emailMessage = `La tarea "<strong>${t.title}</strong>" está vencida desde el ${formatDate(dueDate)}.`;
+        }
+        // Condición 2: Vence hoy (está en el rango de hoy)
+        else if (dueDate >= todayStart && dueDate < tomorrowStart) {
+          shouldNotify = true;
+          emailSubject = `🔔 Recordatorio: Tarea vence HOY - ${t.title}`;
+          emailBodyTitle = 'Tarea vence hoy';
+          emailMessage = `La tarea "<strong>${t.title}</strong>" vence hoy.`;
+        }
+        // Condición 3: Vence mañana (está en el rango de mañana)
+        else if (dueDate >= tomorrowStart && dueDate < tomorrowEnd) {
+          shouldNotify = true;
+          emailSubject = `🔔 Recordatorio: Tarea próxima a vencer - ${t.title}`;
+          emailBodyTitle = 'Tarea próxima a vencer';
+          emailMessage = `La tarea "<strong>${t.title}</strong>" vence mañana.`;
         }
 
         if (shouldNotify && t.assigneeIds && Array.isArray(t.assigneeIds)) {
@@ -2037,144 +2011,4 @@ export const checkTaskDueDates = functions.pubsub.schedule('every day 08:00').ti
   
   functions.logger.log('✅ Verificación diaria completada.');
 });
-
-// Notificaciones de Solicitudes de Cambio
-
-function buildChangeRequestEmail(
-  request: any,
-  project: any,
-  requesterName: string,
-  isNew: boolean
-): string {
-  const title = isNew ? 'Nueva Solicitud de Cambio' : 'Actualización de Solicitud de Cambio';
-  const color = isNew ? '#3b82f6' : '#f59e0b'; // Blue for new, Amber for update
-
-  const content = `
-    <div class="email-header">
-      <div class="logo-container">
-        <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Grupo Heroica" class="logo-img">
-      </div>
-      <h1 class="email-title">${title}</h1>
-      <p class="email-subtitle">${project.name}</p>
-    </div>
-
-    <div class="email-body">
-      <div class="info-card" style="border-left-color: ${color};">
-        <div class="info-row">
-          <div class="info-label">Título</div>
-          <div class="info-value">${escapeHtml(request.title)}</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Solicitado por</div>
-          <div class="info-value">${escapeHtml(requesterName)}</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Estado</div>
-          <div class="badge" style="background-color: #e2e8f0; color: #475569; margin: 0;">${escapeHtml(request.status)}</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Prioridad</div>
-          <div class="badge" style="background-color: #fee2e2; color: #991b1b; margin: 0;">${escapeHtml(request.priority)}</div>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 24px;">
-        <h3 style="color: #273c2a; margin-bottom: 8px;">Descripción</h3>
-        <p style="color: #475569; line-height: 1.6;">${escapeHtml(request.description)}</p>
-      </div>
-
-      <div style="margin-bottom: 24px;">
-        <h3 style="color: #273c2a; margin-bottom: 8px;">Justificación</h3>
-        <p style="color: #475569; line-height: 1.6;">${escapeHtml(request.justification)}</p>
-      </div>
-
-      <div style="text-align: center; margin-top: 32px;">
-        <a href="https://gh-proyectos.web.app/changes" class="cta-button" style="display: inline-block; background-color: #F2B05F; color: #273c2a; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Ver Solicitud</a>
-      </div>
-    </div>
-
-    <div class="email-footer">
-      <p>Este es un mensaje automático, por favor no responder.</p>
-      <p>&copy; ${new Date().getFullYear()} Grupo Heroica. Todos los derechos reservados.</p>
-    </div>
-  `;
-
-  return getEmailTemplate(content);
-}
-
-export const onChangeRequestWrite = functions.database.ref('/changeRequests/{requestId}')
-  .onWrite(async (change, context) => {
-    const requestId = context.params.requestId;
-    const before = change.before.exists() ? change.before.val() : null;
-    const after = change.after.exists() ? change.after.val() : null;
-
-    // Si fue eliminado, no hacemos nada por ahora
-    if (!after) return null;
-
-    const isNew = !before;
-    
-    // Si es actualización, verificamos si hubo cambios relevantes (estado, prioridad, etc.)
-    if (!isNew && before.status === after.status && before.priority === after.priority) {
-       return null; 
-    }
-
-    functions.logger.log(`📝 Change Request ${isNew ? 'created' : 'updated'}:`, requestId);
-
-    const db = admin.database();
-    const accessToken = await getAccessToken();
-    if (!accessToken) return null;
-
-    if (!after.projectId) return null;
-
-    // Obtener Proyecto
-    const projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
-    const project = projectSnap.val();
-    if (!project) return null;
-
-    // Obtener Solicitante
-    let requesterName = 'Usuario';
-    let requesterEmail = null;
-    if (after.requesterId) {
-      const reqSnap = await db.ref(`/users/${after.requesterId}`).once('value');
-      const reqData = reqSnap.val();
-      requesterEmail = reqData?.email || null;
-      requesterName = reqData?.displayName || reqData?.name || requesterEmail || 'Usuario';
-    }
-
-    // Recopilar destinatarios
-    const recipients = new Set<string>();
-
-    // 1. Propietario del Proyecto
-    if (project.ownerId) {
-      const email = await getUserEmail(project.ownerId, db);
-      if (email) recipients.add(email);
-    }
-
-    // 2. Propietarios compartidos
-    if (project.owners && Array.isArray(project.owners)) {
-      for (const uid of project.owners) {
-        const email = await getUserEmail(uid, db);
-        if (email) recipients.add(email);
-      }
-    }
-
-    // 3. Solicitante
-    if (requesterEmail) {
-      recipients.add(requesterEmail);
-    }
-
-    if (recipients.size === 0) return null;
-
-    try {
-      const subject = `${isNew ? 'Nueva Solicitud' : 'Actualización'}: ${after.title} - ${project.name}`;
-      const body = buildChangeRequestEmail(after, project, requesterName, isNew);
-      
-      await sendEmail(accessToken, Array.from(recipients), subject, body);
-      functions.logger.log(`✅ Change Request email sent to:`, Array.from(recipients).join(', '));
-    } catch (err) {
-      functions.logger.error('❌ Failed to send change request email:', err);
-    }
-
-    return null;
-  });
-
+	
