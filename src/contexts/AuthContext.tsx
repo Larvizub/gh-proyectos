@@ -21,6 +21,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 horas de inactividad
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -32,6 +34,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const database = useMemo(() => getDatabaseForSite(selectedSite), [selectedSite]);
+
+  const signOut = async () => {
+    try {
+      localStorage.removeItem('lastActivity');
+      await firebaseSignOut(auth);
+      setUser(null);
+      setFirebaseUser(null);
+      toast.success("Sesión cerrada correctamente");
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast.error("Error al cerrar sesión");
+    }
+  };
+
+  // Manejo de inactividad de sesión (2 horas)
+  useEffect(() => {
+    if (!firebaseUser) return;
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    
+    const updateActivity = () => {
+      localStorage.setItem('lastActivity', Date.now().toString());
+    };
+
+    const checkInactivity = () => {
+      const lastActivity = localStorage.getItem('lastActivity');
+      if (lastActivity) {
+        const inactiveTime = Date.now() - parseInt(lastActivity);
+        if (inactiveTime > SESSION_TIMEOUT) {
+          console.log('[AuthContext] Sesión expirada por inactividad');
+          signOut();
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // Verificar inmediatamente al cargar si ya pasó el tiempo
+    if (checkInactivity()) return;
+
+    // Inicializar actividad si no existe
+    if (!localStorage.getItem('lastActivity')) {
+      updateActivity();
+    }
+
+    // Escuchar eventos de usuario
+    events.forEach(event => window.addEventListener(event, updateActivity));
+
+    // Verificar cada minuto
+    const interval = setInterval(checkInactivity, 60000);
+
+    return () => {
+      events.forEach(event => window.removeEventListener(event, updateActivity));
+      clearInterval(interval);
+    };
+  }, [firebaseUser]);
 
   useEffect(() => {
     let userListenerUnsub: (() => void) | null = null;
@@ -490,18 +548,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         toast.error("Error al iniciar sesión con Microsoft. Por favor intenta de nuevo.");
       }
       throw error;
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      await firebaseSignOut(auth);
-      setUser(null);
-      setFirebaseUser(null);
-      toast.success("Sesión cerrada correctamente");
-    } catch (error) {
-      console.error("Error signing out:", error);
-      toast.error("Error al cerrar sesión");
     }
   };
 
