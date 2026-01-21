@@ -33,6 +33,7 @@ export interface SubTask {
   id: string;
   title: string;
   completed: boolean;
+  dueDate?: number;
   createdAt: number;
 }
 

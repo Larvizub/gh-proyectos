@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
-import { ListTodo, Plus, X } from 'lucide-react';
+import { ListTodo, Plus, X, Calendar as CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface SubTasksProps {
   subTasks: SubTask[];
@@ -15,6 +17,7 @@ interface SubTasksProps {
 export function SubTasks({ subTasks, onChange }: SubTasksProps) {
   const [showForm, setShowForm] = useState(false);
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
+  const [newSubTaskDueDate, setNewSubTaskDueDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const completedCount = subTasks.filter(st => st.completed).length;
@@ -27,16 +30,22 @@ export function SubTasks({ subTasks, onChange }: SubTasksProps) {
     setSubmitting(true);
     
     try {
+      const dueDateTimestamp = newSubTaskDueDate 
+        ? new Date(newSubTaskDueDate + 'T12:00:00').getTime() 
+        : undefined;
+
       const newSubTask: SubTask = {
         id: `subtask-${Date.now()}`,
         title: newSubTaskTitle.trim(),
         completed: false,
+        dueDate: dueDateTimestamp,
         createdAt: Date.now(),
       };
 
       onChange([...subTasks, newSubTask]);
 
       setNewSubTaskTitle('');
+      setNewSubTaskDueDate('');
       setShowForm(false);
     } catch (error: any) {
       toast.error(error?.message || 'Error al agregar subtarea');
@@ -104,7 +113,7 @@ export function SubTasks({ subTasks, onChange }: SubTasksProps) {
 
         {/* Formulario para nueva subtarea */}
         {showForm && (
-          <div className="flex gap-2">
+          <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
             <input
               type="text"
               value={newSubTaskTitle}
@@ -116,29 +125,47 @@ export function SubTasks({ subTasks, onChange }: SubTasksProps) {
                 }
               }}
               placeholder="Título de la subtarea..."
-              className="flex-1 rounded-md border bg-input text-foreground placeholder:text-muted-foreground px-3 py-2 text-sm"
+              className="w-full rounded-md border bg-input text-foreground placeholder:text-muted-foreground px-3 py-2 text-sm"
               disabled={submitting}
               autoFocus
             />
-            <Button 
-              type="button" 
-              size="sm" 
-              disabled={submitting}
-              onClick={handleAddSubTask}
-            >
-              Agregar
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setShowForm(false);
-                setNewSubTaskTitle('');
-              }}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex flex-col gap-1.5 flex-1">
+              <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground ml-1">
+                Fecha de vencimiento
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <CalendarIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="date"
+                    value={newSubTaskDueDate}
+                    onChange={(e) => setNewSubTaskDueDate(e.target.value)}
+                    className="w-full rounded-md border bg-input text-foreground placeholder:text-muted-foreground pl-9 pr-3 py-2 text-sm appearance-none"
+                    disabled={submitting}
+                  />
+                </div>
+                <Button 
+                  type="button" 
+                  size="sm" 
+                  disabled={submitting}
+                  onClick={handleAddSubTask}
+                >
+                  Agregar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowForm(false);
+                    setNewSubTaskTitle('');
+                    setNewSubTaskDueDate('');
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -150,35 +177,47 @@ export function SubTasks({ subTasks, onChange }: SubTasksProps) {
           </div>
         ) : (
           <div className="space-y-2">
-            {subTasks.map((subTask) => (
-              <div
-                key={subTask.id}
-                className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 group"
-              >
-                <Checkbox
-                  checked={subTask.completed}
-                  onCheckedChange={() => handleToggleSubTask(subTask.id)}
-                />
-                <span
-                  className={`flex-1 text-sm ${
-                    subTask.completed
-                      ? 'line-through text-muted-foreground'
-                      : ''
-                  }`}
+            {subTasks.map((subTask) => {
+              const overdue = subTask.dueDate && subTask.dueDate < Date.now() && !subTask.completed;
+              return (
+                <div
+                  key={subTask.id}
+                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 group"
                 >
-                  {subTask.title}
-                </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  type="button"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => handleDeleteSubTask(subTask.id)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  <Checkbox
+                    checked={subTask.completed}
+                    onCheckedChange={() => handleToggleSubTask(subTask.id)}
+                  />
+                  <div className="flex-1 flex flex-col min-w-0">
+                    <span
+                      className={`text-sm truncate ${
+                        subTask.completed
+                          ? 'line-through text-muted-foreground'
+                          : ''
+                      }`}
+                    >
+                      {subTask.title}
+                    </span>
+                    {subTask.dueDate && (
+                      <span className={`text-[10px] flex items-center gap-1 ${overdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                        <CalendarIcon className="h-3 w-3" />
+                        {format(subTask.dueDate, 'PPP', { locale: es })}
+                        {overdue && ' (Vencida)'}
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    type="button"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleDeleteSubTask(subTask.id)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         )}
       </CardContent>
