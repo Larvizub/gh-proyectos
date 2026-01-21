@@ -15,7 +15,7 @@ interface AuthContextType {
   signInWithMicrosoft: (site: SiteKey) => Promise<void>;
   selectedSite: SiteKey;
   database: Database;
-  signOut: () => Promise<void>;
+  signOut: (reason?: 'manual' | 'inactivity') => Promise<void>;
   hasModulePermission: (moduleKey: string, action: 'observe' | 'interact') => boolean;
 }
 
@@ -35,13 +35,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const database = useMemo(() => getDatabaseForSite(selectedSite), [selectedSite]);
 
-  const signOut = async () => {
+  const signOut = async (reason: 'manual' | 'inactivity' = 'manual') => {
     try {
       localStorage.removeItem('lastActivity');
       await firebaseSignOut(auth);
       setUser(null);
       setFirebaseUser(null);
-      toast.success("Sesión cerrada correctamente");
+      if (reason === 'inactivity') {
+        toast.info("Su sesión ha expirado por inactividad");
+      } else {
+        toast.success("Sesión cerrada correctamente");
+      }
     } catch (error) {
       console.error("Error signing out:", error);
       toast.error("Error al cerrar sesión");
@@ -55,6 +59,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
     
     const updateActivity = () => {
+      const lastActivity = localStorage.getItem('lastActivity');
+      if (lastActivity) {
+        const inactiveTime = Date.now() - parseInt(lastActivity);
+        if (inactiveTime > SESSION_TIMEOUT) {
+          console.warn('[AuthContext] Sesión expirada detectada al intentar actualizar actividad');
+          signOut('inactivity');
+          return;
+        }
+      }
       localStorage.setItem('lastActivity', Date.now().toString());
     };
 
@@ -63,8 +76,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (lastActivity) {
         const inactiveTime = Date.now() - parseInt(lastActivity);
         if (inactiveTime > SESSION_TIMEOUT) {
-          console.log('[AuthContext] Sesión expirada por inactividad');
-          signOut();
+          console.warn('[AuthContext] Sesión expirada por inactividad (check mensual)');
+          signOut('inactivity');
           return true;
         }
       }
@@ -96,6 +109,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
+        // --- VERIFICAR INACTIVIDAD INMEDIATAMENTE ---
+        const lastActivity = localStorage.getItem('lastActivity');
+        if (lastActivity) {
+          const inactiveTime = Date.now() - parseInt(lastActivity);
+          if (inactiveTime > SESSION_TIMEOUT) {
+            console.warn(`[AuthContext] Sesión expirada por inactividad detectada en carga: ${inactiveTime}ms > ${SESSION_TIMEOUT}ms`);
+            await firebaseSignOut(auth);
+            localStorage.removeItem('lastActivity');
+            if (mounted) {
+              setFirebaseUser(null);
+              setUser(null);
+              setLoading(false);
+            }
+            toast.info("Su sesión ha expirado por inactividad");
+            return;
+          }
+        } else {
+          // Si no hay lastActivity pero hay usuario, inicializarlo
+          localStorage.setItem('lastActivity', Date.now().toString());
+        }
+        // --------------------------------------------
+
         console.log("Firebase user authenticated:", fbUser.uid);
         if (!mounted) return;
         setFirebaseUser(fbUser);
@@ -536,6 +571,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       console.log("✅ User authenticated successfully with correct domain");
+      localStorage.setItem('lastActivity', Date.now().toString());
       toast.success("Inicio de sesión exitoso");
     } catch (error: any) {
       console.error("❌ Error signing in with Microsoft:", error);
