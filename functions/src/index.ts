@@ -1911,96 +1911,179 @@ export const checkTaskDueDates = functions.pubsub.schedule('every day 08:00').ti
 
       for (const [taskId, task] of Object.entries(tasks)) {
         const t = task as any;
-        // Ignorar tareas sin fecha o completadas
-        if (!t.dueDate || t.status === 'completed') continue;
+        // Ignorar tareas completadas
+        if (t.status === 'completed') continue;
 
-        const dueDate = t.dueDate;
-        let shouldNotify = false;
-        let emailSubject = '';
-        let emailBodyTitle = '';
-        let emailMessage = '';
+        const project = projects[t.projectId];
+        const projectName = project ? project.name : 'Sin proyecto';
 
-        // Condición 1: Ya venció (es menor al inicio de hoy)
-        if (dueDate < todayStart) {
-          shouldNotify = true;
-          emailSubject = `⚠️ Alerta: Tarea vencida - ${t.title}`;
-          emailBodyTitle = 'Tarea Vencida';
-          emailMessage = `La tarea "<strong>${t.title}</strong>" está vencida desde el ${formatDate(dueDate)}.`;
-        }
-        // Condición 2: Vence hoy (está en el rango de hoy)
-        else if (dueDate >= todayStart && dueDate < tomorrowStart) {
-          shouldNotify = true;
-          emailSubject = `🔔 Recordatorio: Tarea vence HOY - ${t.title}`;
-          emailBodyTitle = 'Tarea vence hoy';
-          emailMessage = `La tarea "<strong>${t.title}</strong>" vence hoy.`;
-        }
-        // Condición 3: Vence mañana (está en el rango de mañana)
-        else if (dueDate >= tomorrowStart && dueDate < tomorrowEnd) {
-          shouldNotify = true;
-          emailSubject = `🔔 Recordatorio: Tarea próxima a vencer - ${t.title}`;
-          emailBodyTitle = 'Tarea próxima a vencer';
-          emailMessage = `La tarea "<strong>${t.title}</strong>" vence mañana.`;
-        }
+        // --- 1. VERIFICAR TAREA PRINCIPAL ---
+        if (t.dueDate) {
+          const dueDate = t.dueDate;
+          let shouldNotify = false;
+          let emailSubject = '';
+          let emailBodyTitle = '';
+          let emailMessage = '';
 
-        if (shouldNotify && t.assigneeIds && Array.isArray(t.assigneeIds)) {
-          const assigneeEmails: string[] = [];
-          for (const userId of t.assigneeIds) {
-            // Reutilizamos getUserEmail que ya existe en el archivo
-            const email = await getUserEmail(userId, db);
-            if (email) assigneeEmails.push(email);
+          // Condición 1: Ya venció (es menor al inicio de hoy)
+          if (dueDate < todayStart) {
+            shouldNotify = true;
+            emailSubject = `⚠️ Alerta: Tarea vencida - ${t.title}`;
+            emailBodyTitle = 'Tarea Vencida';
+            emailMessage = `La tarea "<strong>${t.title}</strong>" está vencida desde el ${formatDate(dueDate)}.`;
+          }
+          // Condición 2: Vence hoy (está en el rango de hoy)
+          else if (dueDate >= todayStart && dueDate < tomorrowStart) {
+            shouldNotify = true;
+            emailSubject = `🔔 Recordatorio: Tarea vence HOY - ${t.title}`;
+            emailBodyTitle = 'Tarea vence hoy';
+            emailMessage = `La tarea "<strong>${t.title}</strong>" vence hoy.`;
+          }
+          // Condición 3: Vence mañana (está en el rango de mañana)
+          else if (dueDate >= tomorrowStart && dueDate < tomorrowEnd) {
+            shouldNotify = true;
+            emailSubject = `🔔 Recordatorio: Tarea próxima a vencer - ${t.title}`;
+            emailBodyTitle = 'Tarea próxima a vencer';
+            emailMessage = `La tarea "<strong>${t.title}</strong>" vence mañana.`;
           }
 
-          if (assigneeEmails.length > 0) {
-            const project = projects[t.projectId];
-            const projectName = project ? project.name : 'Sin proyecto';
+          if (shouldNotify && t.assigneeIds && Array.isArray(t.assigneeIds)) {
+            const assigneeEmails: string[] = [];
+            for (const userId of t.assigneeIds) {
+              const email = await getUserEmail(userId, db);
+              if (email) assigneeEmails.push(email);
+            }
 
-            const content = `
-              <div class="email-header">
-                <div class="logo-container">
-                  <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+            if (assigneeEmails.length > 0) {
+              const content = `
+                <div class="email-header">
+                  <div class="logo-container">
+                    <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+                  </div>
+                  <h1 class="email-title">${emailBodyTitle}</h1>
+                  <p class="email-subtitle">Sistema de Gestión de Proyectos</p>
                 </div>
-                <h1 class="email-title">${emailBodyTitle}</h1>
-                <p class="email-subtitle">Sistema de Gestión de Proyectos</p>
-              </div>
-              
-              <div class="email-body">
-                <div class="info-card">
-                  <div class="info-value" style="font-weight: normal;">${emailMessage}</div>
-                </div>
+                
+                <div class="email-body">
+                  <div class="info-card">
+                    <div class="info-value" style="font-weight: normal;">${emailMessage}</div>
+                  </div>
 
-                <div style="margin-top: 24px; padding: 0 8px;">
-                  <div style="margin-bottom: 16px;">
-                    <div class="info-label">Proyecto</div>
-                    <div class="info-value">${projectName}</div>
+                  <div style="margin-top: 24px; padding: 0 8px;">
+                    <div style="margin-bottom: 16px;">
+                      <div class="info-label">Proyecto</div>
+                      <div class="info-value">${projectName}</div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                      <div>
+                        <div class="info-label">Estado</div>
+                        <div class="badge" style="background-color: #e2e8f0; color: #475569; margin: 0;">${t.status}</div>
+                      </div>
+                      <div>
+                        <div class="info-label">Prioridad</div>
+                        <div class="badge" style="background-color: #fee2e2; color: #991b1b; margin: 0;">${t.priority}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="text-align: center;">
+                    <a href="https://gh-proyectos.web.app/" class="cta-button" style="display: inline-block; background-color: #F2B05F; color: #273c2a; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Ver Tarea</a>
+                  </div>
+                </div>
+                
+                <div class="email-footer">
+                  <p>Este es un mensaje automático, por favor no responder.</p>
+                  <p>&copy; ${new Date().getFullYear()} Grupo Heroica. Todos los derechos reservados.</p>
+                </div>
+              `;
+
+              const htmlContent = getEmailTemplate(content);
+              await sendEmail(accessToken, assigneeEmails, emailSubject, htmlContent);
+              functions.logger.log(`📧 Notificación enviada para tarea ${taskId} a ${assigneeEmails.join(', ')}`);
+            }
+          }
+        }
+
+        // --- 2. VERIFICAR SUBTAREAS ---
+        if (t.subTasks && Array.isArray(t.subTasks)) {
+          for (const subTask of t.subTasks) {
+            // Ignorar si no tiene fecha o está completada
+            if (!subTask.dueDate || subTask.completed) continue;
+
+            const dueDate = subTask.dueDate;
+            let shouldNotify = false;
+            let emailSubject = '';
+            let emailBodyTitle = '';
+            let emailMessage = '';
+
+            // Mismas condiciones de tiempo
+            if (dueDate < todayStart) {
+              shouldNotify = true;
+              emailSubject = `⚠️ Alerta: Subtarea vencida - ${subTask.title}`;
+              emailBodyTitle = 'Subtarea Vencida';
+              emailMessage = `La subtarea "<strong>${subTask.title}</strong>" de la tarea "<strong>${t.title}</strong>" está vencida desde el ${formatDate(dueDate)}.`;
+            } else if (dueDate >= todayStart && dueDate < tomorrowStart) {
+              shouldNotify = true;
+              emailSubject = `🔔 Recordatorio: Subtarea vence HOY - ${subTask.title}`;
+              emailBodyTitle = 'Subtarea vence hoy';
+              emailMessage = `La subtarea "<strong>${subTask.title}</strong>" de la tarea "<strong>${t.title}</strong>" vence hoy.`;
+            } else if (dueDate >= tomorrowStart && dueDate < tomorrowEnd) {
+              shouldNotify = true;
+              emailSubject = `🔔 Recordatorio: Subtarea próxima a vencer - ${subTask.title}`;
+              emailBodyTitle = 'Subtarea próxima a vencer';
+              emailMessage = `La subtarea "<strong>${subTask.title}</strong>" de la tarea "<strong>${t.title}</strong>" vence mañana.`;
+            }
+
+            if (shouldNotify && t.assigneeIds && Array.isArray(t.assigneeIds)) {
+              const assigneeEmails: string[] = [];
+              for (const userId of t.assigneeIds) {
+                const email = await getUserEmail(userId, db);
+                if (email) assigneeEmails.push(email);
+              }
+
+              if (assigneeEmails.length > 0) {
+                const content = `
+                  <div class="email-header">
+                    <div class="logo-container">
+                      <img src="https://costaricacc.com/cccr/Logoheroica.png" alt="Logo Heroica" class="logo-img" />
+                    </div>
+                    <h1 class="email-title">${emailBodyTitle}</h1>
+                    <p class="email-subtitle">Sistema de Gestión de Proyectos</p>
                   </div>
                   
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                    <div>
-                      <div class="info-label">Estado</div>
-                      <div class="badge" style="background-color: #e2e8f0; color: #475569; margin: 0;">${t.status}</div>
+                  <div class="email-body">
+                    <div class="info-card">
+                      <div class="info-value" style="font-weight: normal;">${emailMessage}</div>
                     </div>
-                    <div>
-                      <div class="info-label">Prioridad</div>
-                      <div class="badge" style="background-color: #fee2e2; color: #991b1b; margin: 0;">${t.priority}</div>
+
+                    <div style="margin-top: 24px; padding: 0 8px;">
+                      <div style="margin-bottom: 16px;">
+                        <div class="info-label">Tarea principal</div>
+                        <div class="info-value">${t.title}</div>
+                      </div>
+                      <div style="margin-bottom: 16px;">
+                        <div class="info-label">Proyecto</div>
+                        <div class="info-value">${projectName}</div>
+                      </div>
+                    </div>
+
+                    <div style="text-align: center;">
+                      <a href="https://gh-proyectos.web.app/" class="cta-button" style="display: inline-block; background-color: #F2B05F; color: #273c2a; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Ver Tarea</a>
                     </div>
                   </div>
-                </div>
+                  
+                  <div class="email-footer">
+                    <p>Este es un mensaje automático, por favor no responder.</p>
+                    <p>&copy; ${new Date().getFullYear()} Grupo Heroica. Todos los derechos reservados.</p>
+                  </div>
+                `;
 
-                <div style="text-align: center;">
-                  <a href="https://gh-proyectos.web.app/" class="cta-button" style="display: inline-block; background-color: #F2B05F; color: #273c2a; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Ver Tarea</a>
-                </div>
-              </div>
-              
-              <div class="email-footer">
-                <p>Este es un mensaje automático, por favor no responder.</p>
-                <p>&copy; ${new Date().getFullYear()} Grupo Heroica. Todos los derechos reservados.</p>
-              </div>
-            `;
-
-            const htmlContent = getEmailTemplate(content);
-
-            await sendEmail(accessToken, assigneeEmails, emailSubject, htmlContent);
-            functions.logger.log(`📧 Notificación enviada para tarea ${taskId} a ${assigneeEmails.join(', ')}`);
+                const htmlContent = getEmailTemplate(content);
+                await sendEmail(accessToken, assigneeEmails, emailSubject, htmlContent);
+                functions.logger.log(`📧 Notificación enviada para subtarea de ${taskId} a ${assigneeEmails.join(', ')}`);
+              }
+            }
           }
         }
       }
