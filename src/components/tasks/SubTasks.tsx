@@ -8,6 +8,7 @@ import { ListTodo, Plus, X, Calendar as CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import DatePicker from '@/components/ui/DatePicker';
 
 interface SubTasksProps {
   subTasks: SubTask[];
@@ -134,14 +135,11 @@ export function SubTasks({ subTasks, onChange }: SubTasksProps) {
                 Fecha de vencimiento
               </label>
               <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <CalendarIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="date"
+                <div className="flex-1">
+                  <DatePicker
                     value={newSubTaskDueDate}
-                    onChange={(e) => setNewSubTaskDueDate(e.target.value)}
-                    className="w-full rounded-md border bg-input text-foreground placeholder:text-muted-foreground pl-9 pr-3 py-2 text-sm appearance-none"
-                    disabled={submitting}
+                    onChange={(val) => setNewSubTaskDueDate(val)}
+                    placeholder="Vencimiento"
                   />
                 </div>
                 <Button 
