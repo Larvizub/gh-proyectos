@@ -36,6 +36,19 @@ export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttCh
 
   const totalDays = days.length;
 
+  // Ordenar tareas por fecha de vencimiento ascendente (las sin dueDate van al final).
+  const sortedTasks = useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      const aDue = a.dueDate ?? Infinity;
+      const bDue = b.dueDate ?? Infinity;
+      if (aDue !== bDue) return aDue - bDue;
+      const aStart = a.startDate ?? Infinity;
+      const bStart = b.startDate ?? Infinity;
+      if (aStart !== bStart) return aStart - bStart;
+      return a.createdAt - b.createdAt;
+    });
+  }, [tasks]);
+
   const bucketOptions = [1, 7, 30, 90];
   const [bucketDays, setBucketDays] = useState<number>(1);
 
@@ -119,7 +132,7 @@ export default function GanttChart({ tasks, onTaskClick, onTaskDelete }: GanttCh
 
         {/* Rows */}
         <div className="divide-y">
-          {tasks.map((task) => {
+          {sortedTasks.map((task) => {
             const taskStart = startOfDay(new Date(task.startDate ?? task.createdAt ?? Date.now()));
             const taskEnd = startOfDay(new Date(task.dueDate ?? task.completedAt ?? (task.startDate ?? task.createdAt) + 24 * 60 * 60 * 1000));
 

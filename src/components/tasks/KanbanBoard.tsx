@@ -200,7 +200,17 @@ export function KanbanBoard({ tasks, onTaskClick, onTaskStatusChange, onTaskDele
 
   const getTasksByStatus = useCallback((status: TaskStatus) => {
     const filtered = tasks.filter(task => task.status === status);
-    return filtered.slice(0, MAX_TASKS_PER_COLUMN);
+    // Ordenar por dueDate ascendente, luego por startDate y createdAt como desempate.
+    const sorted = filtered.sort((a, b) => {
+      const aDue = a.dueDate ?? Infinity;
+      const bDue = b.dueDate ?? Infinity;
+      if (aDue !== bDue) return aDue - bDue;
+      const aStart = a.startDate ?? Infinity;
+      const bStart = b.startDate ?? Infinity;
+      if (aStart !== bStart) return aStart - bStart;
+      return a.createdAt - b.createdAt;
+    });
+    return sorted.slice(0, MAX_TASKS_PER_COLUMN);
   }, [tasks]);
 
   const getTasksCount = useCallback((status: TaskStatus) => {
