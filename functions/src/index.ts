@@ -285,6 +285,19 @@ function buildProjectCreatedEmail(project: any, ownerName: string): string {
   const startDate = formatDate(project?.startDate);
   const endDate = formatDate(project?.endDate);
 
+  let tagsHtml = '';
+  if (project?.tags && Array.isArray(project.tags) && project.tags.length > 0) {
+    tagsHtml = `
+      <div style="margin-top: 12px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
+        ${project.tags.map((tag: string) => `
+          <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin: 2px;">
+            ${escapeHtml(tag)}
+          </span>
+        `).join('')}
+      </div>
+    `;
+  }
+
   const content = `
     <div class="email-header">
       <div class="logo-container">
@@ -292,6 +305,7 @@ function buildProjectCreatedEmail(project: any, ownerName: string): string {
       </div>
       <h1 class="email-title">🎉 Nuevo Proyecto Creado</h1>
       <p class="email-subtitle">Se ha creado un nuevo proyecto en la plataforma</p>
+      ${tagsHtml}
     </div>
     
     <div class="email-body">
@@ -353,6 +367,19 @@ function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assign
   };
   const statusInfo = statusConfig[task?.status] || statusConfig.todo;
 
+  let tagsHtml = '';
+  if (project?.tags && Array.isArray(project.tags) && project.tags.length > 0) {
+    tagsHtml = `
+      <div style="margin-top: 12px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
+        ${project.tags.map((tag: string) => `
+          <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin: 2px;">
+            ${escapeHtml(tag)}
+          </span>
+        `).join('')}
+      </div>
+    `;
+  }
+
   let changesHtml = '';
   if (changes && changes.length > 0) {
     changesHtml = `
@@ -372,6 +399,7 @@ function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assign
       </div>
       <h1 class="email-title">Actualización de Tarea</h1>
       <p class="email-subtitle">${projectName}</p>
+      ${tagsHtml}
     </div>
     
     <div class="email-body">
@@ -432,6 +460,19 @@ function buildCommentNotificationEmail(comment: any, task: any, project: any, co
   const commentText = escapeHtml(comment?.content || comment?.text || 'Sin texto');
   const commentDate = formatDate(comment?.createdAt);
 
+  let tagsHtml = '';
+  if (project?.tags && Array.isArray(project.tags) && project.tags.length > 0) {
+    tagsHtml = `
+      <div style="margin-top: 12px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
+        ${project.tags.map((tag: string) => `
+          <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin: 2px;">
+            ${escapeHtml(tag)}
+          </span>
+        `).join('')}
+      </div>
+    `;
+  }
+
   const content = `
     <div class="email-header">
       <div class="logo-container">
@@ -439,6 +480,7 @@ function buildCommentNotificationEmail(comment: any, task: any, project: any, co
       </div>
       <h1 class="email-title">Nuevo Comentario en Tarea</h1>
       <p class="email-subtitle">${projectName}</p>
+      ${tagsHtml}
     </div>
     
     <div class="email-body">
@@ -507,6 +549,19 @@ function buildCharterEmail(charter: any, project: any, isNew: boolean, modifierN
   const action = isNew ? 'creada' : 'actualizada';
   const emoji = isNew ? '📄' : '✏️';
 
+  let tagsHtml = '';
+  if (project?.tags && Array.isArray(project.tags) && project.tags.length > 0) {
+    tagsHtml = `
+      <div style="margin-top: 12px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
+        ${project.tags.map((tag: string) => `
+          <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin: 2px;">
+            ${escapeHtml(tag)}
+          </span>
+        `).join('')}
+      </div>
+    `;
+  }
+
   const sections = [
     { label: 'Descripción', value: charter?.projectDescription },
     { label: 'Caso de Negocio', value: charter?.businessCase },
@@ -530,6 +585,7 @@ function buildCharterEmail(charter: any, project: any, isNew: boolean, modifierN
       </div>
       <h1 class="email-title">${emoji} Acta de Constitución ${action}</h1>
       <p class="email-subtitle">Sistema de Gestión de Proyectos</p>
+      ${tagsHtml}
     </div>
     
     <div class="email-body">
@@ -594,6 +650,19 @@ function buildRiskEmail(risk: any, project: any, isNew: boolean, modifierName: s
   const category = CATEGORY_LABELS_EMAIL[risk?.category] || risk?.category || '-';
   const response = RESPONSE_LABELS_EMAIL[risk?.responseStrategy] || risk?.responseStrategy || '-';
 
+  let tagsHtml = '';
+  if (project?.tags && Array.isArray(project.tags) && project.tags.length > 0) {
+    tagsHtml = `
+      <div style="margin-top: 12px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
+        ${project.tags.map((tag: string) => `
+          <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin: 2px;">
+            ${escapeHtml(tag)}
+          </span>
+        `).join('')}
+      </div>
+    `;
+  }
+
   return getEmailTemplate(`
     <div class="email-header">
       <div class="logo-container">
@@ -601,6 +670,7 @@ function buildRiskEmail(risk: any, project: any, isNew: boolean, modifierName: s
       </div>
       <h1 class="email-title">${emoji} Riesgo ${action}</h1>
       <p class="email-subtitle">${projectName}</p>
+      ${tagsHtml}
     </div>
     
     <div class="email-body">
