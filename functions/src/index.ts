@@ -102,8 +102,16 @@ function formatDate(timestamp?: number): string {
 
 async function getUserEmail(userId: string, db: admin.database.Database): Promise<string | null> {
   try {
-    const userSnap = await db.ref(`/users/${userId}`).once('value');
-    const user = userSnap.val();
+    // Primero buscar en el DB proporcionado (podría ser local al sitio)
+    let userSnap = await db.ref(`/users/${userId}`).once('value');
+    let user = userSnap.val();
+    
+    // Si no está ahí, buscar en la base de datos principal como fallback
+    if (!user) {
+      userSnap = await admin.database().ref(`/users/${userId}`).once('value');
+      user = userSnap.val();
+    }
+    
     const email = user?.email || null;
     
     if (!email) {
@@ -117,6 +125,42 @@ async function getUserEmail(userId: string, db: admin.database.Database): Promis
     functions.logger.error('Error fetching user email:', err);
     return null;
   }
+}
+
+function getTagsHtml(tags: any): string {
+  functions.logger.log('🏷️ getTagsHtml called with:', JSON.stringify(tags));
+  
+  if (!tags) {
+    functions.logger.log('🏷️ No tags provided (null/undefined)');
+    return '';
+  }
+  
+  let tagsArray: string[] = [];
+  
+  if (Array.isArray(tags)) {
+    tagsArray = tags.filter(t => t && typeof t === 'string' && t.trim().length > 0);
+    functions.logger.log('🏷️ Tags is array, filtered to:', tagsArray);
+  } else if (typeof tags === 'object') {
+    tagsArray = Object.values(tags).filter(t => t && typeof t === 'string' && (t as string).trim().length > 0) as string[];
+    functions.logger.log('🏷️ Tags is object, converted to:', tagsArray);
+  }
+  
+  if (tagsArray.length === 0) {
+    functions.logger.log('🏷️ No valid tags after processing');
+    return '';
+  }
+  
+  functions.logger.log('🏷️ Generating HTML for tags:', tagsArray);
+  
+  return `
+    <div style="margin-top: 12px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
+      ${tagsArray.map((tag: any) => `
+        <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin: 2px;">
+          ${escapeHtml(tag)}
+        </span>
+      `).join('')}
+    </div>
+  `;
 }
 
 function getEmailTemplate(content: string): string {
@@ -285,18 +329,7 @@ function buildProjectCreatedEmail(project: any, ownerName: string): string {
   const startDate = formatDate(project?.startDate);
   const endDate = formatDate(project?.endDate);
 
-  let tagsHtml = '';
-  if (project?.tags && Array.isArray(project.tags) && project.tags.length > 0) {
-    tagsHtml = `
-      <div style="margin-top: 12px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
-        ${project.tags.map((tag: string) => `
-          <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin: 2px;">
-            ${escapeHtml(tag)}
-          </span>
-        `).join('')}
-      </div>
-    `;
-  }
+  const tagsHtml = getTagsHtml(project?.tags);
 
   const content = `
     <div class="email-header">
@@ -351,6 +384,14 @@ function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assign
   const startDate = formatDate(task?.startDate);
   const dueDate = formatDate(task?.dueDate);
 
+  functions.logger.log('📧 Building task update email - Project data:', {
+    projectId: project?.id,
+    projectName: project?.name,
+    hasTags: !!project?.tags,
+    tags: project?.tags,
+    tagsType: typeof project?.tags
+  });
+
   const priorityConfig: Record<string, { color: string; label: string; emoji: string }> = {
     low: { color: '#10b981', label: 'Baja', emoji: '🟢' },
     medium: { color: '#f59e0b', label: 'Media', emoji: '🟡' },
@@ -367,18 +408,8 @@ function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assign
   };
   const statusInfo = statusConfig[task?.status] || statusConfig.todo;
 
-  let tagsHtml = '';
-  if (project?.tags && Array.isArray(project.tags) && project.tags.length > 0) {
-    tagsHtml = `
-      <div style="margin-top: 12px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
-        ${project.tags.map((tag: string) => `
-          <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin: 2px;">
-            ${escapeHtml(tag)}
-          </span>
-        `).join('')}
-      </div>
-    `;
-  }
+  const tagsHtml = getTagsHtml(project?.tags);
+  functions.logger.log('📧 Tags HTML generated, length:', tagsHtml.length);
 
   let changesHtml = '';
   if (changes && changes.length > 0) {
@@ -460,18 +491,7 @@ function buildCommentNotificationEmail(comment: any, task: any, project: any, co
   const commentText = escapeHtml(comment?.content || comment?.text || 'Sin texto');
   const commentDate = formatDate(comment?.createdAt);
 
-  let tagsHtml = '';
-  if (project?.tags && Array.isArray(project.tags) && project.tags.length > 0) {
-    tagsHtml = `
-      <div style="margin-top: 12px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
-        ${project.tags.map((tag: string) => `
-          <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin: 2px;">
-            ${escapeHtml(tag)}
-          </span>
-        `).join('')}
-      </div>
-    `;
-  }
+  const tagsHtml = getTagsHtml(project?.tags);
 
   const content = `
     <div class="email-header">
@@ -549,18 +569,7 @@ function buildCharterEmail(charter: any, project: any, isNew: boolean, modifierN
   const action = isNew ? 'creada' : 'actualizada';
   const emoji = isNew ? '📄' : '✏️';
 
-  let tagsHtml = '';
-  if (project?.tags && Array.isArray(project.tags) && project.tags.length > 0) {
-    tagsHtml = `
-      <div style="margin-top: 12px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
-        ${project.tags.map((tag: string) => `
-          <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin: 2px;">
-            ${escapeHtml(tag)}
-          </span>
-        `).join('')}
-      </div>
-    `;
-  }
+  const tagsHtml = getTagsHtml(project?.tags);
 
   const sections = [
     { label: 'Descripción', value: charter?.projectDescription },
@@ -650,18 +659,7 @@ function buildRiskEmail(risk: any, project: any, isNew: boolean, modifierName: s
   const category = CATEGORY_LABELS_EMAIL[risk?.category] || risk?.category || '-';
   const response = RESPONSE_LABELS_EMAIL[risk?.responseStrategy] || risk?.responseStrategy || '-';
 
-  let tagsHtml = '';
-  if (project?.tags && Array.isArray(project.tags) && project.tags.length > 0) {
-    tagsHtml = `
-      <div style="margin-top: 12px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
-        ${project.tags.map((tag: string) => `
-          <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin: 2px;">
-            ${escapeHtml(tag)}
-          </span>
-        `).join('')}
-      </div>
-    `;
-  }
+  const tagsHtml = getTagsHtml(project?.tags);
 
   return getEmailTemplate(`
     <div class="email-header">
@@ -885,9 +883,18 @@ async function handleTaskWrite(change: functions.Change<functions.database.DataS
     functions.logger.log('🗑️ Task deleted:', taskId);
     if (!before || !before.projectId) return null;
 
-    const projectSnap = await db.ref(`/projects/${before.projectId}`).once('value');
-    const project = projectSnap.val();
-    if (!project) return null;
+    let projectSnap = await db.ref(`/projects/${before.projectId}`).once('value');
+    let project = projectSnap.val();
+
+    if (!project) {
+      projectSnap = await admin.database().ref(`/projects/${before.projectId}`).once('value');
+      project = projectSnap.val();
+    }
+
+    if (!project) {
+      functions.logger.warn(`⚠️ Project ${before.projectId} not found (deletion)`);
+      return null;
+    }
 
     // Recopilar destinatarios (Owner + Asignados)
     const recipients = new Set<string>();
@@ -953,16 +960,27 @@ async function handleTaskWrite(change: functions.Change<functions.database.DataS
 
   if (!after.projectId) return null;
 
-  const projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
-  const project = projectSnap.val();
-  if (!project) return null;
+  let projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
+  let project = projectSnap.val();
+  
+  // Fallback a la base de datos principal si no se encuentra en la secundaria
+  if (!project) {
+    projectSnap = await admin.database().ref(`/projects/${after.projectId}`).once('value');
+    project = projectSnap.val();
+  }
+  
+  if (!project) {
+    functions.logger.warn(`⚠️ Project ${after.projectId} not found in current or main DB`);
+    return null;
+  }
 
   // Obtener nombre del owner
   let ownerName = 'Propietario';
   if (project.ownerId) {
-    const ownerSnap = await db.ref(`/users/${project.ownerId}`).once('value');
+    const mainDb = admin.database();
+    const ownerSnap = await mainDb.ref(`/users/${project.ownerId}`).once('value');
     const ownerData = ownerSnap.val();
-    const ownerEmail = await getUserEmail(project.ownerId, db);
+    const ownerEmail = await getUserEmail(project.ownerId, mainDb);
     ownerName = ownerData?.displayName || ownerData?.name || ownerEmail || 'Propietario';
   }
 
@@ -983,8 +1001,14 @@ async function handleTaskWrite(change: functions.Change<functions.database.DataS
       if (email) recipients.add(email);
       // Solo tomamos el nombre del primero para el template
       if (!assignedUserName) {
-         const uSnap = await db.ref(`/users/${uid}`).once('value');
-         assignedUserName = uSnap.val()?.displayName || uSnap.val()?.name || email;
+         const mainDb = admin.database();
+         let uSnap = await db.ref(`/users/${uid}`).once('value');
+         let uData = uSnap.val();
+         if (!uData) {
+            uSnap = await mainDb.ref(`/users/${uid}`).once('value');
+            uData = uSnap.val();
+         }
+         assignedUserName = uData?.displayName || uData?.name || email;
       }
     }
   } else if (after.assignedTo) {
@@ -993,8 +1017,15 @@ async function handleTaskWrite(change: functions.Change<functions.database.DataS
      if (uid) {
        const email = await getUserEmail(uid, db);
        if (email) recipients.add(email);
-       const uSnap = await db.ref(`/users/${uid}`).once('value');
-       assignedUserName = uSnap.val()?.displayName || uSnap.val()?.name || email;
+       
+       const mainDb = admin.database();
+       let uSnap = await db.ref(`/users/${uid}`).once('value');
+       let uData = uSnap.val();
+       if (!uData) {
+         uSnap = await mainDb.ref(`/users/${uid}`).once('value');
+         uData = uSnap.val();
+       }
+       assignedUserName = uData?.displayName || uData?.name || email;
      }
   }
 
@@ -1126,8 +1157,13 @@ async function processCommentNotification(comment: any, db: admin.database.Datab
   });
 
   // Obtener información del proyecto
-  const projectSnap = await db.ref(`/projects/${task.projectId}`).once('value');
-  const project = projectSnap.val();
+  let projectSnap = await db.ref(`/projects/${task.projectId}`).once('value');
+  let project = projectSnap.val();
+
+  if (!project) {
+    projectSnap = await admin.database().ref(`/projects/${task.projectId}`).once('value');
+    project = projectSnap.val();
+  }
 
   if (!project) {
     functions.logger.warn('⚠️ Project not found for task, skipping email');
@@ -1141,8 +1177,15 @@ async function processCommentNotification(comment: any, db: admin.database.Datab
   });
 
   // Obtener información del comentarista
-  const commenterSnap = await db.ref(`/users/${comment.userId}`).once('value');
-  const commenterData = commenterSnap.val();
+  const mainDb = admin.database();
+  let commenterSnap = await db.ref(`/users/${comment.userId}`).once('value');
+  let commenterData = commenterSnap.val();
+  
+  if (!commenterData) {
+    commenterSnap = await mainDb.ref(`/users/${comment.userId}`).once('value');
+    commenterData = commenterSnap.val();
+  }
+  
   const commenterName = commenterData?.displayName || commenterData?.name || comment.userDisplayName || 'Usuario';
 
   // Recolectar destinatarios: owner del proyecto y usuarios asignados
@@ -1292,8 +1335,14 @@ async function handleCharterWrite(change: functions.Change<functions.database.Da
   }
 
   // Obtener información del proyecto
-  const projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
-  const project = projectSnap.val();
+  let projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
+  let project = projectSnap.val();
+
+  if (!project) {
+    projectSnap = await admin.database().ref(`/projects/${after.projectId}`).once('value');
+    project = projectSnap.val();
+  }
+
   if (!project) {
     functions.logger.warn('⚠️ Project not found for charter');
     return null;
@@ -1303,9 +1352,10 @@ async function handleCharterWrite(change: functions.Change<functions.database.Da
   const modifierId = after.updatedBy || after.createdBy;
   let modifierName = 'Usuario';
   if (modifierId) {
-    const modifierSnap = await db.ref(`/users/${modifierId}`).once('value');
+    const mainDb = admin.database();
+    const modifierSnap = await mainDb.ref(`/users/${modifierId}`).once('value');
     const modifierData = modifierSnap.val();
-    modifierName = modifierData?.displayName || modifierData?.name || await getUserEmail(modifierId, db) || 'Usuario';
+    modifierName = modifierData?.displayName || modifierData?.name || await getUserEmail(modifierId, mainDb) || 'Usuario';
   }
 
   // Recopilar destinatarios (owner + owners compartidos + miembros)
@@ -1392,8 +1442,14 @@ async function handleRiskWrite(change: functions.Change<functions.database.DataS
   }
 
   // Obtener información del proyecto
-  const projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
-  const project = projectSnap.val();
+  let projectSnap = await db.ref(`/projects/${after.projectId}`).once('value');
+  let project = projectSnap.val();
+
+  if (!project) {
+    projectSnap = await admin.database().ref(`/projects/${after.projectId}`).once('value');
+    project = projectSnap.val();
+  }
+
   if (!project) {
     functions.logger.warn('⚠️ Project not found for risk');
     return null;
@@ -1403,9 +1459,10 @@ async function handleRiskWrite(change: functions.Change<functions.database.DataS
   const modifierId = after.updatedBy || after.createdBy;
   let modifierName = 'Usuario';
   if (modifierId) {
-    const modifierSnap = await db.ref(`/users/${modifierId}`).once('value');
+    const mainDb = admin.database();
+    const modifierSnap = await mainDb.ref(`/users/${modifierId}`).once('value');
     const modifierData = modifierSnap.val();
-    modifierName = modifierData?.displayName || modifierData?.name || await getUserEmail(modifierId, db) || 'Usuario';
+    modifierName = modifierData?.displayName || modifierData?.name || await getUserEmail(modifierId, mainDb) || 'Usuario';
   }
 
   // Recopilar destinatarios (owner + owners compartidos + responsable del riesgo)
