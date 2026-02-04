@@ -384,12 +384,13 @@ function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assign
   const startDate = formatDate(task?.startDate);
   const dueDate = formatDate(task?.dueDate);
 
-  functions.logger.log('📧 Building task update email - Project data:', {
+  functions.logger.log('📧 Building task update email - Task and Project data:', {
+    taskId: task?.id,
     projectId: project?.id,
     projectName: project?.name,
-    hasTags: !!project?.tags,
-    tags: project?.tags,
-    tagsType: typeof project?.tags
+    taskHasTags: !!task?.tags,
+    taskTags: task?.tags,
+    taskTagsType: typeof task?.tags
   });
 
   const priorityConfig: Record<string, { color: string; label: string; emoji: string }> = {
@@ -408,8 +409,8 @@ function buildTaskUpdateEmail(task: any, project: any, ownerName: string, assign
   };
   const statusInfo = statusConfig[task?.status] || statusConfig.todo;
 
-  const tagsHtml = getTagsHtml(project?.tags);
-  functions.logger.log('📧 Tags HTML generated, length:', tagsHtml.length);
+  const tagsHtml = getTagsHtml(task?.tags);
+  functions.logger.log('📧 Tags HTML generated for TASK tags, length:', tagsHtml.length);
 
   let changesHtml = '';
   if (changes && changes.length > 0) {
