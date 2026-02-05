@@ -27,7 +27,8 @@ export default function ProjectDetailsPage() {
   const [loading, setLoading] = useState(true);
   const { tasks } = useTasksCache(id);
   const [usersMap, setUsersMap] = useState<Record<string, any>>({});
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [openTagFilter, setOpenTagFilter] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [viewType, setViewType] = useState<ViewType>('overview');
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
@@ -341,13 +342,62 @@ export default function ProjectDetailsPage() {
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               {project.tags && project.tags.length > 0 ? (
-                <div className="w-full sm:w-[200px]">
-                  <Select value={tagFilter ?? ''} onChange={(v) => setTagFilter(v ? String(v) : null)} className="w-full">
-                    <option value="">Todos los tags</option>
-                    {project.tags.map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </Select>
+                <div className="w-full sm:w-[200px] relative">
+                  <button
+                    type="button"
+                    onClick={() => setOpenTagFilter(!openTagFilter)}
+                    className="w-full rounded-md border border-input bg-input px-3 py-2 text-left text-sm text-foreground shadow-sm flex items-center justify-between"
+                  >
+                    <span className="truncate">
+                      {tagFilters.length === 0 ? 'Todos los tags' : 
+                       tagFilters.length === 1 ? tagFilters[0] : 
+                       `${tagFilters.length} tags seleccionados`}
+                    </span>
+                    <svg className={`h-4 w-4 text-muted-foreground ml-3 transition-transform ${openTagFilter ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                      <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
+                    </svg>
+                  </button>
+                  
+                  {openTagFilter && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setOpenTagFilter(false)} 
+                      />
+                      <div className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-md bg-popover shadow-lg ring-1 ring-black/10 p-1">
+                        <button
+                          onClick={() => {
+                            setTagFilters([]);
+                            setOpenTagFilter(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${tagFilters.length === 0 ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                        >
+                          Todos los tags
+                        </button>
+                        <div className="h-px bg-border my-1" />
+                        {[...(project.tags || [])].sort((a, b) => a.localeCompare(b)).map(tag => (
+                          <label 
+                            key={tag} 
+                            className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted text-sm cursor-pointer transition-colors"
+                          >
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-input text-primary focus:ring-primary"
+                              checked={tagFilters.includes(tag)} 
+                              onChange={(e) => {
+                                setTagFilters(prev => 
+                                  e.target.checked 
+                                    ? [...prev, tag] 
+                                    : prev.filter(x => x !== tag)
+                                );
+                              }} 
+                            />
+                            <span className="truncate">{tag}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : null}
               
@@ -646,8 +696,8 @@ export default function ProjectDetailsPage() {
                         <div className="flex flex-col gap-1">
                           {(!project.tags || project.tags.length === 0) ? (
                             <div className="p-2 text-sm text-muted-foreground">Este proyecto no tiene tags definidos.</div>
-                          ) : project.tags.map(tag => (
-                            <label key={tag} className="inline-flex items-center gap-2 px-2 py-1 rounded hover:bg-muted text-sm">
+                          ) : [...(project.tags || [])].sort((a, b) => a.localeCompare(b)).map(tag => (
+                            <label key={tag} className="inline-flex items-center gap-2 px-2 py-1 rounded hover:bg-muted text-sm cursor-pointer">
                               <input type="checkbox" checked={newTaskSelectedTags.includes(tag)} onChange={(e) => {
                                 setNewTaskSelectedTags(prev => e.target.checked ? [...prev, tag] : prev.filter(x => x !== tag));
                               }} />
@@ -1033,7 +1083,7 @@ export default function ProjectDetailsPage() {
       {viewType === 'kanban' && (
         <div className="w-full max-w-full">
           <KanbanBoard 
-            tasks={tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks} 
+            tasks={tagFilters.length > 0 ? tasks.filter(t => (t.tags || []).some(tag => tagFilters.includes(tag))) : tasks} 
             onTaskClick={(task) => setSelectedTask(task)}
             onTaskStatusChange={handleTaskStatusChange}
             onTaskDelete={handleDeleteTask}
@@ -1042,7 +1092,7 @@ export default function ProjectDetailsPage() {
       )}
 
       {viewType === 'gantt' && (
-        <GanttChart tasks={tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
+        <GanttChart tasks={tagFilters.length > 0 ? tasks.filter(t => (t.tags || []).some(tag => tagFilters.includes(tag))) : tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
       )}
 
       {viewType === 'list' && (
@@ -1064,10 +1114,10 @@ export default function ProjectDetailsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {((tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks).length === 0) ? (
-                    <tr><td colSpan={9} className="p-6 text-muted-foreground text-center">No hay tareas en este proyecto</td></tr>
+                  {((tagFilters.length > 0 ? tasks.filter(t => (t.tags || []).some(tag => tagFilters.includes(tag))) : tasks).length === 0) ? (
+                    <tr><td colSpan={9} className="p-6 text-muted-foreground text-center">No hay tareas que coincidan con los filtros</td></tr>
                   ) : (
-                    (tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks).map(task => (
+                    (tagFilters.length > 0 ? tasks.filter(t => (t.tags || []).some(tag => tagFilters.includes(tag))) : tasks).map(task => (
                       <tr key={task.id} className="border-t hover:bg-muted/10">
                         <td className="px-4 py-3">{task.title}</td>
                         <td className="px-4 py-3">
@@ -1127,7 +1177,7 @@ export default function ProjectDetailsPage() {
 
       {viewType === 'calendar' && (
         <div>
-          <CalendarView tasks={tagFilter ? tasks.filter(t => (t.tags || []).includes(tagFilter)) : tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
+          <CalendarView tasks={tagFilters.length > 0 ? tasks.filter(t => (t.tags || []).some(tag => tagFilters.includes(tag))) : tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
         </div>
       )}
 

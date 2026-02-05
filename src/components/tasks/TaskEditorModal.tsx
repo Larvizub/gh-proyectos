@@ -398,7 +398,7 @@ export default function TaskEditorModal({ task, onClose, onSaved }: Props) {
                     }}>Añadir</button>
                   </div>
                   <datalist id="project-tags-list">
-                    {projectTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                    {[...projectTags].sort((a, b) => a.localeCompare(b)).map(tag => <option key={tag} value={tag}>{tag}</option>)}
                   </datalist>
                 </div>
               </div>
