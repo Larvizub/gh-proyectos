@@ -84,6 +84,15 @@ export const projectsService = {
     });
     return () => off(projectsRef);
   },
+
+  subscribeToProject: (projectId: string, callback: (project: Project | null) => void) => {
+    const dbToUse = resolveDatabase();
+    const projectRef = ref(dbToUse, `projects/${projectId}`);
+    onValue(projectRef, (snapshot) => {
+      callback(snapshot.exists() ? snapshot.val() : null);
+    });
+    return () => off(projectRef);
+  },
 };
 
 // Notifications
@@ -578,12 +587,6 @@ export const charterService = {
     await set(charterRef, { ...charter, projectId, updatedAt: Date.now() });
   },
 
-  delete: async (projectId: string) => {
-    const dbToUse = resolveDatabase();
-    const charterRef = ref(dbToUse, `charters/${projectId}`);
-    await remove(charterRef);
-  },
-
   listen: (projectId: string, callback: (charter: any) => void) => {
     const dbToUse = resolveDatabase();
     const charterRef = ref(dbToUse, `charters/${projectId}`);
@@ -591,6 +594,12 @@ export const charterService = {
       callback(snapshot.exists() ? snapshot.val() : null);
     });
     return () => off(charterRef);
+  },
+
+  delete: async (projectId: string) => {
+    const dbToUse = resolveDatabase();
+    const charterRef = ref(dbToUse, `charters/${projectId}`);
+    await remove(charterRef);
   }
 };
 

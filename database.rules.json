@@ -13,6 +13,15 @@
     },
     "users": {
       ".indexOn": ["email"]
+    },
+    "risks": {
+      ".indexOn": ["projectId"]
+    },
+    "lessons": {
+      ".indexOn": ["projectId"]
+    },
+    "changeRequests": {
+      ".indexOn": ["projectId"]
     }
   }
 }

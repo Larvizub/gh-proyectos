@@ -7,7 +7,7 @@ import { charterService, risksService } from '@/services/firebase.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { ProjectCharter, Project, Risk } from '@/types';
-import { FileText, Save, X, AlertTriangle, ExternalLink } from 'lucide-react';
+import { FileText, Save, X, AlertTriangle, ExternalLink, Edit3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 function getRiskScoreColor(score: number): string {
@@ -47,6 +47,7 @@ export default function ProjectCharterModal({ project, open, onClose }: Props) {
   const [risks, setRisks] = useState<Risk[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Verificar si el usuario es propietario del proyecto
   const isOwner = user && (project.ownerId === user.id || (project.owners && project.owners.includes(user.id)));
@@ -66,12 +67,14 @@ export default function ProjectCharterModal({ project, open, onClose }: Props) {
         if (mounted) {
           if (existingCharter) {
             setCharter(existingCharter);
+            setIsEditing(false);
           } else {
             // Inicializar con datos del proyecto
             setCharter({
               projectName: project.name,
               projectDescription: project.description,
             });
+            setIsEditing(true);
           }
           // Ordenar riesgos por score descendente
           setRisks(projectRisks.sort((a, b) => (b.riskScore || 0) - (a.riskScore || 0)));
@@ -83,6 +86,7 @@ export default function ProjectCharterModal({ project, open, onClose }: Props) {
             projectName: project.name,
             projectDescription: project.description,
           });
+          setIsEditing(true);
         }
       } finally {
         if (mounted) setLoading(false);
@@ -150,34 +154,43 @@ export default function ProjectCharterModal({ project, open, onClose }: Props) {
             </div>
           ) : (
             <div className="space-y-6">
-              {!isOwner && (
+              {!isOwner && isEditing && (
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm text-amber-700 dark:text-amber-300">
                   Solo los propietarios del proyecto pueden editar el acta de constitución.
                 </div>
               )}
 
-              {CHARTER_FIELDS.map(field => (
-                <div key={field.key}>
-                  <label className="text-sm font-medium mb-1.5 block">{field.label}</label>
-                  {field.multiline ? (
-                    <textarea
-                      value={(charter[field.key] as string) || ''}
-                      onChange={e => handleChange(field.key, e.target.value)}
-                      disabled={!isOwner}
-                      rows={3}
-                      className="w-full rounded-lg border-2 border-border bg-input px-3 py-2 text-sm disabled:opacity-60"
-                      placeholder={`Ingrese ${field.label.toLowerCase()}...`}
-                    />
-                  ) : (
-                    <Input
-                      value={(charter[field.key] as string) || ''}
-                      onChange={e => handleChange(field.key, e.target.value)}
-                      disabled={!isOwner}
-                      placeholder={`Ingrese ${field.label.toLowerCase()}...`}
-                    />
-                  )}
-                </div>
-              ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {CHARTER_FIELDS.map(field => (
+                  <div key={field.key} className={field.multiline ? 'md:col-span-2' : ''}>
+                    <label className="text-sm font-semibold mb-1.5 block text-primary">{field.label}</label>
+                    {isEditing ? (
+                      field.multiline ? (
+                        <textarea
+                          value={(charter[field.key] as string) || ''}
+                          onChange={e => handleChange(field.key, e.target.value)}
+                          disabled={!isOwner}
+                          rows={3}
+                          className="w-full rounded-lg border-2 border-border bg-input px-3 py-2 text-sm disabled:opacity-60 focus:border-primary outline-none transition-colors"
+                          placeholder={`Ingrese ${field.label.toLowerCase()}...`}
+                        />
+                      ) : (
+                        <Input
+                          value={(charter[field.key] as string) || ''}
+                          onChange={e => handleChange(field.key, e.target.value)}
+                          disabled={!isOwner}
+                          className="border-2"
+                          placeholder={`Ingrese ${field.label.toLowerCase()}...`}
+                        />
+                      )
+                    ) : (
+                      <div className="text-sm text-foreground bg-muted/30 p-3 rounded-lg border border-border/50 min-h-[40px] whitespace-pre-wrap">
+                        {(charter[field.key] as string) || <span className="text-muted-foreground italic">No especificado</span>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
 
               {/* Sección de Riesgos de Alto Nivel */}
               <div className="pt-4 border-t">
@@ -259,13 +272,27 @@ export default function ProjectCharterModal({ project, open, onClose }: Props) {
           )}
         </CardContent>
 
-        <div className="flex-shrink-0 flex justify-end gap-3 p-4 border-t">
+        <div className="flex-shrink-0 flex justify-end gap-3 p-4 border-t bg-muted/20">
           <Button variant="outline" onClick={onClose}>Cerrar</Button>
           {isOwner && (
-            <Button onClick={handleSave} disabled={saving}>
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Guardando...' : 'Guardar Acta'}
-            </Button>
+            isEditing ? (
+              <div className="flex gap-2">
+                {charter.createdAt && (
+                  <Button variant="ghost" onClick={() => setIsEditing(false)} disabled={saving}>
+                    Cancelar
+                  </Button>
+                )}
+                <Button onClick={handleSave} disabled={saving}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? 'Guardando...' : 'Guardar Acta'}
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => setIsEditing(true)}>
+                <Edit3 className="h-4 w-4 mr-2" />
+                Editar Acta
+              </Button>
+            )
           )}
         </div>
       </Card>

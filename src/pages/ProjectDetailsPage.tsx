@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { projectsService, tasksService } from '@/services/firebase.service';
-import { Task, Project, ViewType, TaskStatus } from '@/types';
+import { projectsService, tasksService, charterService, risksService } from '@/services/firebase.service';
+import { Task, Project, ViewType, TaskStatus, ProjectCharter, Risk } from '@/types';
 import { Button } from '@/components/ui/button';
 import { usersService } from '@/services/firebase.service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
 import GanttChart from '@/components/tasks/GanttChart';
 import TaskEditorModal from '@/components/tasks/TaskEditorModal';
-import { LayoutList, LayoutGrid, Calendar, Plus, Clipboard, Activity, Eye, CheckCircle, ArrowDown, Minus, ArrowUp, Zap, Edit3, Trash2, User, ArrowLeft, FileText } from 'lucide-react';
+import { LayoutList, LayoutGrid, Calendar, Plus, Clipboard, Activity, Eye, CheckCircle, ArrowDown, Minus, ArrowUp, Zap, Edit3, Trash2, User, ArrowLeft, FileText, Info, AlertTriangle, ExternalLink } from 'lucide-react';
 import ProjectModal from '@/components/projects/ProjectModal';
 import ProjectCharterModal from '@/components/projects/ProjectCharterModal';
 import Select from '@/components/ui/select';
@@ -29,7 +29,7 @@ export default function ProjectDetailsPage() {
   const [usersMap, setUsersMap] = useState<Record<string, any>>({});
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [viewType, setViewType] = useState<ViewType>('kanban');
+  const [viewType, setViewType] = useState<ViewType>('overview');
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -37,8 +37,18 @@ export default function ProjectDetailsPage() {
   const [taskDeleteModalOpen, setTaskDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [charterModalOpen, setCharterModalOpen] = useState(false);
+  const [charter, setCharter] = useState<ProjectCharter | null>(null);
+  const [risks, setRisks] = useState<Risk[]>([]);
+
+  const isOwner = project && user && (
+    project.ownerId === user.id || 
+    (project.owners || []).includes(user.id)
+  );
 
   const allTasksCompleted = tasks.length > 0 && tasks.every(t => t.status === 'completed');
+  const completedTasksCount = tasks.filter(t => t.status === 'completed').length;
+  const totalTasksCount = tasks.length;
+  const progressPercentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
   const handleCloseProject = async () => {
     if (!project) return;
@@ -84,22 +94,33 @@ export default function ProjectDetailsPage() {
 
     let mounted = true;
 
-    (async () => {
-      setLoading(true);
-      try {
-        const p = await projectsService.get(id);
-        if (mounted) {
-          setProject(p);
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Error loading project:', error);
-        if (mounted) setLoading(false);
+    // Listener para el proyecto
+    const unsubProject = projectsService.subscribeToProject(id, (p: Project | null) => {
+      if (mounted) {
+        setProject(p);
+        setLoading(false);
       }
-    })();
+    });
+
+    // Listener para el Acta
+    const unsubCharter = charterService.listen(id, (c: ProjectCharter | null) => {
+      if (mounted) {
+        setCharter(c);
+      }
+    });
+
+    // Listener para Riesgos
+    const unsubRisks = risksService.listenByProject(id, (list: Risk[]) => {
+      if (mounted) {
+        setRisks(list.sort((a, b) => (b.riskScore || 0) - (a.riskScore || 0)));
+      }
+    });
 
     return () => {
       mounted = false;
+      unsubProject();
+      unsubCharter();
+      unsubRisks();
     };
   }, [id]);
   useEffect(() => {
@@ -366,6 +387,18 @@ export default function ProjectDetailsPage() {
           <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-between sm:justify-start">
             {/* Selector de vista - compacto en mobile */}
             <div className="flex rounded-lg border-2 border-border bg-background p-0.5 sm:p-1 shadow-sm">
+              <button
+                onClick={() => setViewType('overview')}
+                className={`flex items-center justify-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-all ${
+                  viewType === 'overview' 
+                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                    : 'hover:bg-muted text-muted-foreground'
+                }`}
+                title="Resumen del Proyecto"
+              >
+                <Info className="h-4 w-4" />
+                <span className="text-xs sm:text-sm font-medium hidden lg:inline">Resumen</span>
+              </button>
               <button
                 onClick={() => {
                   if (isCompact) {
@@ -781,6 +814,222 @@ export default function ProjectDetailsPage() {
       )}
 
       {/* Vista de tareas */}
+      {viewType === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="border-2">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Acta de Constitución</CardTitle>
+                    <p className="text-xs text-muted-foreground">Información estratégica y objetivos</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setCharterModalOpen(true)} className="gap-2">
+                  {charter ? <Eye className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {charter ? (isOwner ? 'Ver / Editar' : 'Ver Acta') : 'Completar'}
+                </Button>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {charter ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-wider">Objetivos Medibles</p>
+                        <p className="text-sm leading-relaxed line-clamp-4">{charter.objectives || 'No definidos'}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-wider">Criterios de Éxito</p>
+                        <p className="text-sm leading-relaxed line-clamp-4">{charter.successCriteria || 'No definidos'}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-dashed">
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-wider">Stakeholders Clave</p>
+                        <p className="text-sm leading-relaxed line-clamp-2 italic text-muted-foreground">
+                          {charter.keyStakeholders || 'No definidos'}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-wider">Patrocinador</p>
+                        <p className="text-sm font-medium">
+                          {charter.projectSponsor || 'No asignado'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-10 text-center bg-muted/20 rounded-xl border-2 border-dashed">
+                    <FileText className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-muted-foreground text-sm mb-4">El acta de constitución es necesaria para formalizar el proyecto.</p>
+                    {isOwner ? (
+                      <Button onClick={() => setCharterModalOpen(true)} variant="secondary" size="sm">
+                        Completar Acta de Constitución
+                      </Button>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">El acta aún no ha sido completada por el dueño del proyecto.</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-2">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-orange-500/10 rounded-lg">
+                    <AlertTriangle className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Matriz de Riesgos</CardTitle>
+                    <p className="text-xs text-muted-foreground">Top riesgos identificados</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => navigate(`/risks/${project.id}`)} className="gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  Ver Matriz
+                </Button>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {risks.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {risks.slice(0, 4).map(risk => (
+                      <div key={risk.id} className="flex items-center justify-between p-3 rounded-xl border bg-card hover:border-orange-500/30 transition-colors">
+                        <div className="min-w-0 flex-1 pr-3">
+                          <p className="text-sm font-semibold truncate">{risk.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] text-muted-foreground uppercase">Score: {risk.riskScore}</span>
+                          </div>
+                        </div>
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          risk.riskScore >= 16 ? 'bg-red-500 text-white' :
+                          risk.riskScore >= 10 ? 'bg-orange-500 text-white' :
+                          risk.riskScore >= 5 ? 'bg-yellow-500 text-black' :
+                          'bg-green-500 text-white'
+                        }`}>
+                          {risk.riskScore}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-10 text-center bg-muted/20 rounded-xl border-2 border-dashed">
+                    <AlertTriangle className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-muted-foreground text-sm mb-4">No se han identificado riesgos en este proyecto.</p>
+                    {isOwner ? (
+                      <Button onClick={() => navigate(`/risks/${project.id}`)} variant="secondary" size="sm">
+                        Identificar Primer Riesgo
+                      </Button>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">El equipo aún no ha reportado riesgos.</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            <Card className="border-2 bg-primary/5 border-primary/20 shadow-sm">
+              <CardHeader className="pb-2 border-b border-primary/10">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-primary" />
+                  Estado de Avance
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm font-medium">
+                    <span>Progreso General</span>
+                    <span className="text-primary font-bold">{progressPercentage}%</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden border">
+                    <div 
+                      className="h-full bg-primary transition-all duration-1000 ease-out" 
+                      style={{ width: `${progressPercentage}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="p-3 bg-background rounded-lg border shadow-sm">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Total Tareas</p>
+                    <p className="text-2xl font-bold">{totalTasksCount}</p>
+                  </div>
+                  <div className="p-3 bg-background rounded-lg border shadow-sm">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Completadas</p>
+                    <p className="text-2xl font-bold text-green-600">{completedTasksCount}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2">
+              <CardHeader className="pb-2 border-b">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                  Sobre el Proyecto
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-4">
+                <div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Descripción</p>
+                  <p className="text-sm leading-relaxed text-foreground/80">
+                    {project.description || 'Sin descripción detallada.'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Propietario</p>
+                    <p className="text-sm font-medium">{usersMap[project.ownerId]?.displayName || usersMap[project.ownerId]?.email || 'Cargando...'}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2">
+              <CardHeader className="pb-2 border-b">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Clipboard className="h-4 w-4 text-primary" />
+                  Próximos Pasos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {tasks.filter(t => t.status !== 'completed').slice(0, 3).map(task => (
+                    <div key={task.id} className="flex items-start gap-3 text-sm">
+                      <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${
+                        task.priority === 'urgent' ? 'bg-red-500 animate-pulse' :
+                        task.priority === 'high' ? 'bg-orange-500' :
+                        'bg-blue-500'
+                      }`} />
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{task.title}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Vence: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Sin fecha'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {tasks.filter(t => t.status !== 'completed').length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">No hay tareas pendientes.</p>
+                  )}
+                  <Button variant="link" className="p-0 h-auto text-xs" onClick={() => setViewType('kanban')}>
+                    Ir al tablero Kanban
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
       {viewType === 'kanban' && (
         <div className="w-full max-w-full">
           <KanbanBoard 

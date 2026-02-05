@@ -90,7 +90,7 @@ export interface Notification {
   createdAt: number;
 }
 
-export type ViewType = 'list' | 'kanban' | 'calendar' | 'gantt';
+export type ViewType = 'list' | 'kanban' | 'calendar' | 'gantt' | 'overview';
 
 // Acta de Constitución del Proyecto (PMI Project Charter)
 export interface ProjectCharter {
