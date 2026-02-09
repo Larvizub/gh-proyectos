@@ -175,15 +175,17 @@ export function ProjectsPage() {
     return <PageLoader message="Cargando proyectos..." overlay={false} />;
   }
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <FolderKanban className="w-8 h-8 text-primary" />
-        <div>
-          <h1 className="text-3xl font-bold">Proyectos</h1>
-          <p className="text-muted-foreground">Gestiona tus proyectos y tareas</p>
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <FolderKanban className="w-7 h-7 sm:w-8 sm:h-8 text-primary flex-shrink-0" />
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">Proyectos</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Gestiona tus proyectos y tareas</p>
+          </div>
         </div>
-        <div className="ml-auto">
-          <Button size="lg" className="shadow-lg hover:shadow-xl transition-shadow" onClick={() => navigate('/projects/new')}>
+        <div className="sm:ml-auto">
+          <Button size="lg" className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-shadow" onClick={() => navigate('/projects/new')}>
           <Plus className="mr-2 h-5 w-5" />
           Nuevo Proyecto
           </Button>
@@ -306,10 +308,10 @@ export function ProjectsPage() {
               </div>
 
               {/* Selector de vista */}
-              <div className="flex gap-2 border rounded-lg p-1 bg-muted/50">
+              <div className="flex gap-2 border rounded-lg p-1 bg-muted/50 w-full sm:w-auto">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded transition-all ${
+                  className={`flex-1 sm:flex-none p-2 rounded transition-all ${
                     viewMode === 'grid'
                       ? 'bg-background shadow-sm text-primary'
                       : 'text-muted-foreground hover:text-foreground'
@@ -320,7 +322,7 @@ export function ProjectsPage() {
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`p-2 rounded transition-all ${
+                  className={`flex-1 sm:flex-none p-2 rounded transition-all ${
                     viewMode === 'list'
                       ? 'bg-background shadow-sm text-primary'
                       : 'text-muted-foreground hover:text-foreground'
@@ -398,25 +400,27 @@ export function ProjectsPage() {
           </CardContent>
         </Card>
       ) : viewMode === 'grid' ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {userProjects.map(project => (
             <Link key={project.id} to={`/projects/${project.id}`}> 
               <Card className="hover:shadow-2xl transition-all duration-300 cursor-pointer h-full border-2 hover:border-primary/50 hover:scale-[1.02] group">
-                <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                <CardHeader className="pb-3 sm:pb-4">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                       <div 
-                        className="h-10 w-10 rounded-xl shadow-md flex-shrink-0 ring-2 ring-white dark:ring-gray-950"
+                        className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl shadow-md flex-shrink-0 ring-2 ring-white dark:ring-gray-950"
                         style={{ backgroundColor: project.color }}
                       />
                       <div className="flex-1 min-w-0">
-                        <CardTitle className="text-xl group-hover:text-primary transition-colors line-clamp-1">
+                        <CardTitle className="text-base sm:text-xl group-hover:text-primary transition-colors line-clamp-1">
                           {project.name}
                         </CardTitle>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shadow-sm flex-shrink-0 ${
+                  </div>
+                  {/* Status y botón editar en una segunda fila en móvil */}
+                  <div className="flex items-center justify-between gap-2 mt-3">
+                    <span className={`text-xs px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full font-semibold shadow-sm flex-shrink-0 whitespace-nowrap ${
                       project.status === 'active'
                         ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
                         : project.status === 'completed'
@@ -425,31 +429,30 @@ export function ProjectsPage() {
                     }`}>
                       {project.status === 'active' ? (
                         <>
-                          <CheckCircle className="h-4 w-4 inline-block mr-2" />
+                          <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 inline-block mr-1 sm:mr-2" />
                           Activo
                         </>
                       ) : project.status === 'completed' ? (
                         <>
-                          <Trophy className="h-4 w-4 inline-block mr-2" />
+                          <Trophy className="h-3 w-3 sm:h-4 sm:w-4 inline-block mr-1 sm:mr-2" />
                           Completado
                         </>
                       ) : (
                         <>
-                          <Calendar className="h-4 w-4 inline-block mr-2" />
+                          <Calendar className="h-3 w-3 sm:h-4 sm:w-4 inline-block mr-1 sm:mr-2" />
                           Planeado
                         </>
                       )}
                     </span>
-                      <button
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingProject(project); setModalOpen(true); }}
-                        title="Editar proyecto"
-                        className="ml-2 inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm bg-muted/20 hover:bg-muted"
-                      >
-                        Editar
-                      </button>
-                    </div>
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingProject(project); setModalOpen(true); }}
+                      title="Editar proyecto"
+                      className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs sm:text-sm bg-muted/20 hover:bg-muted"
+                    >
+                      Editar
+                    </button>
                   </div>
-                  <CardDescription className="line-clamp-2 mt-3 text-base leading-relaxed">
+                  <CardDescription className="line-clamp-2 mt-2 sm:mt-3 text-sm sm:text-base leading-relaxed">
                     {project.description || 'Sin descripción'}
                   </CardDescription>
                 </CardHeader>
