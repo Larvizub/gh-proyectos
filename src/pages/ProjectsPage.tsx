@@ -1,23 +1,31 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, FolderKanban, CheckCircle, Calendar, Trophy, Users, User } from 'lucide-react';
+import { Plus, FolderKanban, CheckCircle, Calendar, Trophy, Users, User, LayoutGrid, List, Search, Filter, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { projectsService, tasksService } from '@/services/firebase.service';
 import ProjectModal from '@/components/projects/ProjectModal';
 import { Project } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUsers } from '@/contexts/UsersContext';
 import { PageLoader } from '@/components/PageLoader';
 
 export function ProjectsPage() {
   const { user } = useAuth();
+  const { users } = useUsers();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  
+  // Estados para filtros y vista
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMemberId, setSelectedMemberId] = useState<string>('all');
 
   useEffect(() => {
     const unsubscribe = projectsService.listen((projectsData) => {
@@ -68,10 +76,31 @@ export function ProjectsPage() {
 
   // Memorizar el filtrado para evitar recálculos en cada render
   const userProjects = useMemo(() => {
-    return projects.filter(
+    let filtered = projects.filter(
       p => p.ownerId === user?.id || p.memberIds?.includes(user?.id || '') || p.owners?.includes(user?.id || '') || assignedProjectIds.has(p.id)
     );
-  }, [projects, user?.id, assignedProjectIds]);
+
+    // Filtrar por búsqueda
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(query) || 
+        p.description?.toLowerCase().includes(query)
+      );
+    }
+
+    // Filtrar por miembro seleccionado
+    if (selectedMemberId !== 'all') {
+      filtered = filtered.filter(p => 
+        p.memberIds?.includes(selectedMemberId) || 
+        p.owners?.includes(selectedMemberId) ||
+        p.ownerId === selectedMemberId
+      );
+    }
+
+    // Ordenar alfabéticamente por nombre
+    return filtered.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+  }, [projects, user?.id, assignedProjectIds, searchQuery, selectedMemberId]);
 
   if (loading) {
     // No usamos el overlay completo aquí para evitar un parpadeo al navegar entre rutas.
@@ -93,6 +122,95 @@ export function ProjectsPage() {
         </div>
       </div>
 
+      {/* Filtros y controles de vista */}
+      {projects.length > 0 && (
+        <Card className="border-2">
+          <CardContent className="pt-6">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Búsqueda por nombre */}
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nombre o descripción..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-9"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Filtro por persona */}
+              <div className="w-full lg:w-64">
+                <select
+                  value={selectedMemberId}
+                  onChange={(e) => setSelectedMemberId(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                  <option value="all">Todos los miembros</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.displayName || u.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Selector de vista */}
+              <div className="flex gap-2 border rounded-lg p-1 bg-muted/50">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded transition-all ${
+                    viewMode === 'grid'
+                      ? 'bg-background shadow-sm text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="Vista de tarjetas"
+                >
+                  <LayoutGrid className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded transition-all ${
+                    viewMode === 'list'
+                      ? 'bg-background shadow-sm text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="Vista de lista"
+                >
+                  <List className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Indicador de filtros activos */}
+            {(searchQuery || selectedMemberId !== 'all') && (
+              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <Filter className="h-4 w-4" />
+                <span>
+                  Mostrando {userProjects.length} de {projects.filter(p => p.ownerId === user?.id || p.memberIds?.includes(user?.id || '') || p.owners?.includes(user?.id || '') || assignedProjectIds.has(p.id)).length} proyectos
+                </span>
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedMemberId('all');
+                  }}
+                  className="ml-2 text-primary hover:underline"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {projects.length === 0 ? (
         <Card className="border-2 border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-20">
@@ -109,7 +227,26 @@ export function ProjectsPage() {
             </Button>
           </CardContent>
         </Card>
-      ) : (
+      ) : userProjects.length === 0 ? (
+        <Card className="border-2">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Filter className="h-12 w-12 text-muted-foreground mb-3" />
+            <h3 className="text-lg font-semibold mb-2">No se encontraron proyectos</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Intenta ajustar los filtros de búsqueda
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedMemberId('all');
+              }}
+            >
+              Limpiar filtros
+            </Button>
+          </CardContent>
+        </Card>
+      ) : viewMode === 'grid' ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {userProjects.map(project => (
             <Link key={project.id} to={`/projects/${project.id}`}> 
@@ -188,6 +325,86 @@ export function ProjectsPage() {
                         </>
                       )}
                     </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        /* Vista de lista/tabla */
+        <div className="space-y-3">
+          {userProjects.map(project => (
+            <Link key={project.id} to={`/projects/${project.id}`}>
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer border-2 hover:border-primary/50 group">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    {/* Color indicator */}
+                    <div 
+                      className="h-12 w-12 rounded-lg shadow-md flex-shrink-0 ring-2 ring-white dark:ring-gray-950"
+                      style={{ backgroundColor: project.color }}
+                    />
+                    
+                    {/* Información del proyecto */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-bold group-hover:text-primary transition-colors truncate">
+                          {project.name}
+                        </h3>
+                        <span className={`text-xs px-2 py-1 rounded-full font-semibold flex-shrink-0 ${
+                          project.status === 'active'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
+                            : project.status === 'completed'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
+                        }`}>
+                          {project.status === 'active' ? 'Activo' : project.status === 'completed' ? 'Completado' : 'Planeado'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-1">
+                        {project.description || 'Sin descripción'}
+                      </p>
+                    </div>
+
+                    {/* Estadísticas */}
+                    <div className="hidden md:flex items-center gap-4 flex-shrink-0">
+                      <div className="flex items-center gap-2 text-sm bg-muted/50 rounded-lg px-3 py-2">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{project.memberIds.length}</span>
+                      </div>
+                      
+                      <span className={`px-3 py-2 rounded-lg text-xs font-semibold ${
+                        project.ownerId === user?.id 
+                          ? 'bg-primary/20 text-primary' 
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {project.ownerId === user?.id ? (
+                          <>
+                            <Trophy className="h-3.5 w-3.5 inline-block mr-1" />
+                            Propietario
+                          </>
+                        ) : (
+                          <>
+                            <User className="h-3.5 w-3.5 inline-block mr-1" />
+                            Miembro
+                          </>
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Botón de editar */}
+                    <button
+                      onClick={(e) => { 
+                        e.preventDefault(); 
+                        e.stopPropagation(); 
+                        setEditingProject(project); 
+                        setModalOpen(true); 
+                      }}
+                      title="Editar proyecto"
+                      className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-md text-sm bg-muted/20 hover:bg-muted transition-colors"
+                    >
+                      Editar
+                    </button>
                   </div>
                 </CardContent>
               </Card>
