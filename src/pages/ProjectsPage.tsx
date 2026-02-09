@@ -194,173 +194,169 @@ export function ProjectsPage() {
 
       {/* Filtros y controles de vista */}
       {projects.length > 0 && (
-        <Card className="border-2">
-          <CardContent className="pt-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Búsqueda por nombre */}
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nombre o descripción..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-9"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-
-              {/* Filtro por persona con búsqueda */}
-              <div className="w-full lg:w-80 relative">
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Filtrar por miembro..."
-                    value={selectedMemberId === 'all' ? memberSearchQuery : selectedMemberName}
-                    onChange={(e) => {
-                      setMemberSearchQuery(e.target.value);
-                      if (selectedMemberId !== 'all') {
-                        setSelectedMemberId('all');
-                      }
-                    }}
-                    onFocus={() => setShowMemberDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowMemberDropdown(false), 200)}
-                    className="pl-9 pr-9"
-                  />
-                  {selectedMemberId !== 'all' && (
-                    <button
-                      onClick={() => {
-                        setSelectedMemberId('all');
-                        setMemberSearchQuery('');
-                      }}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-                
-                {/* Dropdown de sugerencias */}
-                {showMemberDropdown && (
-                  <div className="absolute z-50 w-full mt-1 bg-background border-2 border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                    {projectMembers.length === 0 ? (
-                      <div className="px-3 py-4 text-sm text-center text-muted-foreground">
-                        <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No hay miembros en tus proyectos</p>
-                      </div>
-                    ) : filteredMembers.length === 0 ? (
-                      <div className="px-3 py-4 text-sm text-center text-muted-foreground">
-                        <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No se encontraron miembros</p>
-                        <p className="text-xs mt-1">Intenta con otro nombre</p>
-                      </div>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => {
-                            setSelectedMemberId('all');
-                            setMemberSearchQuery('');
-                            setShowMemberDropdown(false);
-                          }}
-                          className="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm border-b"
-                        >
-                          <span className="font-medium">Todos los miembros</span>
-                          <span className="text-muted-foreground ml-2">({projectMembers.length})</span>
-                        </button>
-                        {filteredMembers.map((member) => (
-                          <button
-                            key={member.id}
-                            onClick={() => {
-                              setSelectedMemberId(member.id);
-                              setMemberSearchQuery('');
-                              setShowMemberDropdown(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm ${
-                              selectedMemberId === member.id ? 'bg-primary/10' : ''
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              {member.photoURL ? (
-                                <img
-                                  src={member.photoURL}
-                                  alt={member.displayName || member.email}
-                                  className="h-6 w-6 rounded-full"
-                                />
-                              ) : (
-                                <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center">
-                                  <User className="h-3 w-3 text-primary" />
-                                </div>
-                              )}
-                              <span>{member.displayName || member.email}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Selector de vista */}
-              <div className="flex gap-2 border rounded-lg p-1 bg-muted/50 w-full sm:w-auto">
+        <div className="space-y-4">
+          <div className="flex flex-col lg:flex-row gap-4 items-stretch">
+            {/* Búsqueda por nombre */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre o descripción..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-10 h-10"
+              />
+              {searchQuery && (
                 <button
-                  onClick={() => setViewMode('grid')}
-                  className={`flex-1 sm:flex-none p-2 rounded transition-all ${
-                    viewMode === 'grid'
-                      ? 'bg-background shadow-sm text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  title="Vista de tarjetas"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <LayoutGrid className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`flex-1 sm:flex-none p-2 rounded transition-all ${
-                    viewMode === 'list'
-                      ? 'bg-background shadow-sm text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  title="Vista de lista"
-                >
-                  <List className="h-5 w-5" />
-                </button>
-              </div>
+              )}
             </div>
 
-            {/* Indicador de filtros activos */}
-            {(searchQuery || selectedMemberId !== 'all') && (
-              <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">
-                  Mostrando {userProjects.length} de {projects.filter(p => p.ownerId === user?.id || p.memberIds?.includes(user?.id || '') || p.owners?.includes(user?.id || '') || assignedProjectIds.has(p.id)).length} proyectos
-                </span>
-                {selectedMemberId !== 'all' && selectedMemberName && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
-                    <User className="h-3 w-3" />
-                    {selectedMemberName}
-                  </span>
-                )}
+            {/* Filtro por persona con búsqueda */}
+            <div className="w-full lg:w-80 relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Filtrar por miembro..."
+                value={selectedMemberId === 'all' ? memberSearchQuery : selectedMemberName}
+                onChange={(e) => {
+                  setMemberSearchQuery(e.target.value);
+                  if (selectedMemberId !== 'all') {
+                    setSelectedMemberId('all');
+                  }
+                }}
+                onFocus={() => setShowMemberDropdown(true)}
+                onBlur={() => setTimeout(() => setShowMemberDropdown(false), 200)}
+                className="pl-10 pr-10 h-10"
+              />
+              {selectedMemberId !== 'all' && (
                 <button
                   onClick={() => {
-                    setSearchQuery('');
                     setSelectedMemberId('all');
                     setMemberSearchQuery('');
                   }}
-                  className="ml-2 text-primary hover:underline font-medium"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Limpiar filtros
+                  <X className="h-4 w-4" />
                 </button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+              
+              {/* Dropdown de sugerencias */}
+              {showMemberDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-background border-2 border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {projectMembers.length === 0 ? (
+                    <div className="px-3 py-4 text-sm text-center text-muted-foreground">
+                      <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No hay miembros en tus proyectos</p>
+                    </div>
+                  ) : filteredMembers.length === 0 ? (
+                    <div className="px-3 py-4 text-sm text-center text-muted-foreground">
+                      <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No se encontraron miembros</p>
+                      <p className="text-xs mt-1">Intenta con otro nombre</p>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setSelectedMemberId('all');
+                          setMemberSearchQuery('');
+                          setShowMemberDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm border-b"
+                      >
+                        <span className="font-medium">Todos los miembros</span>
+                        <span className="text-muted-foreground ml-2">({projectMembers.length})</span>
+                      </button>
+                      {filteredMembers.map((member) => (
+                        <button
+                          key={member.id}
+                          onClick={() => {
+                            setSelectedMemberId(member.id);
+                            setMemberSearchQuery('');
+                            setShowMemberDropdown(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm ${
+                            selectedMemberId === member.id ? 'bg-primary/10' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {member.photoURL ? (
+                              <img
+                                src={member.photoURL}
+                                alt={member.displayName || member.email}
+                                className="h-6 w-6 rounded-full"
+                              />
+                            ) : (
+                              <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center">
+                                <User className="h-3 w-3 text-primary" />
+                              </div>
+                            )}
+                            <span>{member.displayName || member.email}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Selector de vista */}
+            <div className="flex gap-1 border rounded-md p-1 bg-muted/50 w-full sm:w-auto h-10">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`flex-1 sm:flex-none px-3 rounded transition-all flex items-center justify-center ${
+                  viewMode === 'grid'
+                    ? 'bg-background shadow-sm text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="Vista de tarjetas"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex-1 sm:flex-none px-3 rounded transition-all flex items-center justify-center ${
+                  viewMode === 'list'
+                    ? 'bg-background shadow-sm text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="Vista de lista"
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Indicador de filtros activos */}
+          {(searchQuery || selectedMemberId !== 'all') && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">
+                Mostrando {userProjects.length} de {projects.filter(p => p.ownerId === user?.id || p.memberIds?.includes(user?.id || '') || p.owners?.includes(user?.id || '') || assignedProjectIds.has(p.id)).length} proyectos
+              </span>
+              {selectedMemberId !== 'all' && selectedMemberName && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                  <User className="h-3 w-3" />
+                  {selectedMemberName}
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedMemberId('all');
+                  setMemberSearchQuery('');
+                }}
+                className="ml-2 text-primary hover:underline font-medium"
+              >
+                Limpiar filtros
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {projects.length === 0 ? (
