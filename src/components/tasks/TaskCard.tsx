@@ -82,6 +82,8 @@ function TaskCardComponent({ task, onClick, onDelete }: TaskCardProps) {
   const tags = task?.tags ?? [];
   const assigneeIds = task?.assigneeIds ?? [];
   const attachments = task?.attachments ?? [];
+  const subTasks = task?.subTasks ?? [];
+  const subTasksCompleted = subTasks.filter(st => st.completed).length;
   const assignees = assigneeIds.map(id => usersMap[id]).filter(Boolean);
 
   useEffect(() => {
@@ -229,6 +231,13 @@ function TaskCardComponent({ task, onClick, onDelete }: TaskCardProps) {
               <div className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5">
                 <Paperclip className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="font-medium">{attachments.length}</span>
+              </div>
+            )}
+
+            {subTasks.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5" title={`${subTasksCompleted} de ${subTasks.length} subtareas completadas`}>
+                <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="font-medium">{subTasksCompleted} / {subTasks.length}</span>
               </div>
             )}
           </div>
