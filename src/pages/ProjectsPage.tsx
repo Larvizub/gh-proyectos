@@ -102,6 +102,15 @@ export function ProjectsPage() {
     return filtered.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
   }, [projects, user?.id, assignedProjectIds, searchQuery, selectedMemberId]);
 
+  // Ordenar usuarios alfabéticamente para el selector
+  const sortedUsers = useMemo(() => {
+    return [...users].sort((a, b) => {
+      const nameA = a.displayName || a.email;
+      const nameB = b.displayName || b.email;
+      return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+    });
+  }, [users]);
+
   if (loading) {
     // No usamos el overlay completo aquí para evitar un parpadeo al navegar entre rutas.
     return <PageLoader message="Cargando proyectos..." overlay={false} />;
@@ -151,10 +160,10 @@ export function ProjectsPage() {
                 <select
                   value={selectedMemberId}
                   onChange={(e) => setSelectedMemberId(e.target.value)}
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  className="w-full h-10 px-3 rounded-md border-2 border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer hover:border-primary/50 transition-colors"
                 >
                   <option value="all">Todos los miembros</option>
-                  {users.map(u => (
+                  {sortedUsers.map(u => (
                     <option key={u.id} value={u.id}>
                       {u.displayName || u.email}
                     </option>
@@ -333,47 +342,62 @@ export function ProjectsPage() {
         </div>
       ) : (
         /* Vista de lista/tabla */
-        <div className="space-y-3">
+        <div className="space-y-4">
           {userProjects.map(project => (
             <Link key={project.id} to={`/projects/${project.id}`}>
-              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer border-2 hover:border-primary/50 group">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
+              <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer border-2 hover:border-primary/50 group">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-5">
                     {/* Color indicator */}
                     <div 
-                      className="h-12 w-12 rounded-lg shadow-md flex-shrink-0 ring-2 ring-white dark:ring-gray-950"
+                      className="h-14 w-14 rounded-xl shadow-md flex-shrink-0 ring-2 ring-white dark:ring-gray-950"
                       style={{ backgroundColor: project.color }}
                     />
                     
                     {/* Información del proyecto */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-3 mb-1.5">
                         <h3 className="text-lg font-bold group-hover:text-primary transition-colors truncate">
                           {project.name}
                         </h3>
-                        <span className={`text-xs px-2 py-1 rounded-full font-semibold flex-shrink-0 ${
+                        <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shadow-sm flex-shrink-0 ${
                           project.status === 'active'
                             ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
                             : project.status === 'completed'
                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100'
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
                         }`}>
-                          {project.status === 'active' ? 'Activo' : project.status === 'completed' ? 'Completado' : 'Planeado'}
+                          {project.status === 'active' ? (
+                            <>
+                              <CheckCircle className="h-3.5 w-3.5 inline-block mr-1" />
+                              Activo
+                            </>
+                          ) : project.status === 'completed' ? (
+                            <>
+                              <Trophy className="h-3.5 w-3.5 inline-block mr-1" />
+                              Completado
+                            </>
+                          ) : (
+                            <>
+                              <Calendar className="h-3.5 w-3.5 inline-block mr-1" />
+                              Planeado
+                            </>
+                          )}
                         </span>
                       </div>
-                      <p className="text-sm text-muted-foreground line-clamp-1">
+                      <p className="text-sm text-muted-foreground line-clamp-1 leading-relaxed">
                         {project.description || 'Sin descripción'}
                       </p>
                     </div>
 
                     {/* Estadísticas */}
-                    <div className="hidden md:flex items-center gap-4 flex-shrink-0">
+                    <div className="hidden md:flex items-center gap-3 flex-shrink-0">
                       <div className="flex items-center gap-2 text-sm bg-muted/50 rounded-lg px-3 py-2">
                         <Users className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{project.memberIds.length}</span>
+                        <span className="font-medium">{project.memberIds.length} miembros</span>
                       </div>
                       
-                      <span className={`px-3 py-2 rounded-lg text-xs font-semibold ${
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
                         project.ownerId === user?.id 
                           ? 'bg-primary/20 text-primary' 
                           : 'bg-muted text-muted-foreground'
@@ -401,7 +425,7 @@ export function ProjectsPage() {
                         setModalOpen(true); 
                       }}
                       title="Editar proyecto"
-                      className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-md text-sm bg-muted/20 hover:bg-muted transition-colors"
+                      className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-muted/20 hover:bg-muted transition-colors"
                     >
                       Editar
                     </button>
