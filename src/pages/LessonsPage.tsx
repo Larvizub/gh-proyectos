@@ -45,7 +45,10 @@ export default function LessonsPage() {
     setLoading(true);
     try {
       const all = await projectsService.getAll();
-      const completed = all.filter(p => p.status === 'completed');
+      const completed = all.filter(p => 
+        p.status === 'completed' && 
+        (p.ownerId === user?.id || p.owners?.includes(user?.id || ''))
+      );
       setProjects(completed);
     } catch (error) {
       console.error('Error loading projects:', error);
