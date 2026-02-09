@@ -15,7 +15,7 @@ import { PageLoader } from '@/components/PageLoader';
 
 export function ProjectsPage() {
   const { user } = useAuth();
-  const { users } = useUsers();
+  const { usersMap, loading: usersLoading } = useUsers();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -26,6 +26,8 @@ export function ProjectsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string>('all');
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
 
   useEffect(() => {
     const unsubscribe = projectsService.listen((projectsData) => {
@@ -102,16 +104,73 @@ export function ProjectsPage() {
     return filtered.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
   }, [projects, user?.id, assignedProjectIds, searchQuery, selectedMemberId]);
 
-  // Ordenar usuarios alfabéticamente para el selector
-  const sortedUsers = useMemo(() => {
-    return [...users].sort((a, b) => {
-      const nameA = a.displayName || a.email;
-      const nameB = b.displayName || b.email;
-      return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
-    });
-  }, [users]);
+  // Obtener miembros únicos de los proyectos del usuario con información completa
+  const projectMembers = useMemo(() => {
+    // Si los usuarios aún no se cargaron, retornar array vacío
+    if (usersLoading || Object.keys(usersMap).length === 0) {
+      console.log('🔍 Esperando usuarios... usersLoading:', usersLoading, 'usersMap size:', Object.keys(usersMap).length);
+      return [];
+    }
 
-  if (loading) {
+    const memberIdsSet = new Set<string>();
+    const allUserProjects = projects.filter(
+      p => p.ownerId === user?.id || p.memberIds?.includes(user?.id || '') || p.owners?.includes(user?.id || '') || assignedProjectIds.has(p.id)
+    );
+
+    allUserProjects.forEach(project => {
+      // Añadir owner
+      if (project.ownerId) memberIdsSet.add(project.ownerId);
+      // Añadir owners array
+      if (project.owners) project.owners.forEach(id => memberIdsSet.add(id));
+      // Añadir memberIds
+      if (project.memberIds) project.memberIds.forEach(id => memberIdsSet.add(id));
+    });
+
+    // Usar usersMap en lugar de find para mejor performance
+    const members = Array.from(memberIdsSet)
+      .map(id => usersMap[id])
+      .filter(Boolean)
+      .sort((a, b) => {
+        const nameA = a.displayName || a.email;
+        const nameB = b.displayName || b.email;
+        return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+      });
+
+    // Debug temporal
+    console.log('🔍 Debug - Miembros de proyectos:', {
+      totalProjects: allUserProjects.length,
+      memberIds: Array.from(memberIdsSet),
+      usersMapKeys: Object.keys(usersMap).length,
+      mappedMembers: members.length,
+      members: members.map(m => ({ id: m.id, name: m.displayName || m.email }))
+    });
+
+    return members;
+  }, [projects, usersMap, usersLoading, user?.id, assignedProjectIds]);
+
+  // Filtrar miembros según la búsqueda
+  const filteredMembers = useMemo(() => {
+    if (!memberSearchQuery.trim()) {
+      console.log('🔍 Sin búsqueda, mostrando todos los miembros:', projectMembers.length);
+      return projectMembers;
+    }
+    const query = memberSearchQuery.toLowerCase();
+    const filtered = projectMembers.filter(member => {
+      const name = member.displayName || member.email;
+      return name.toLowerCase().includes(query);
+    });
+    console.log('🔍 Búsqueda:', memberSearchQuery, '- Resultados:', filtered.length);
+    return filtered;
+  }, [projectMembers, memberSearchQuery]);
+
+  // Obtener el nombre del miembro seleccionado
+  const selectedMemberName = useMemo(() => {
+    if (selectedMemberId === 'all') return '';
+    const member = projectMembers.find(m => m.id === selectedMemberId);
+    return member ? (member.displayName || member.email) : '';
+  }, [selectedMemberId, projectMembers]);
+
+  if (loading || usersLoading) {
     // No usamos el overlay completo aquí para evitar un parpadeo al navegar entre rutas.
     return <PageLoader message="Cargando proyectos..." overlay={false} />;
   }
@@ -155,20 +214,95 @@ export function ProjectsPage() {
                 )}
               </div>
 
-              {/* Filtro por persona */}
-              <div className="w-full lg:w-64">
-                <select
-                  value={selectedMemberId}
-                  onChange={(e) => setSelectedMemberId(e.target.value)}
-                  className="w-full h-10 px-3 rounded-md border-2 border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer hover:border-primary/50 transition-colors"
-                >
-                  <option value="all">Todos los miembros</option>
-                  {sortedUsers.map(u => (
-                    <option key={u.id} value={u.id}>
-                      {u.displayName || u.email}
-                    </option>
-                  ))}
-                </select>
+              {/* Filtro por persona con búsqueda */}
+              <div className="w-full lg:w-80 relative">
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Filtrar por miembro..."
+                    value={selectedMemberId === 'all' ? memberSearchQuery : selectedMemberName}
+                    onChange={(e) => {
+                      setMemberSearchQuery(e.target.value);
+                      if (selectedMemberId !== 'all') {
+                        setSelectedMemberId('all');
+                      }
+                    }}
+                    onFocus={() => setShowMemberDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowMemberDropdown(false), 200)}
+                    className="pl-9 pr-9"
+                  />
+                  {selectedMemberId !== 'all' && (
+                    <button
+                      onClick={() => {
+                        setSelectedMemberId('all');
+                        setMemberSearchQuery('');
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                
+                {/* Dropdown de sugerencias */}
+                {showMemberDropdown && (
+                  <div className="absolute z-50 w-full mt-1 bg-background border-2 border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    {projectMembers.length === 0 ? (
+                      <div className="px-3 py-4 text-sm text-center text-muted-foreground">
+                        <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>No hay miembros en tus proyectos</p>
+                      </div>
+                    ) : filteredMembers.length === 0 ? (
+                      <div className="px-3 py-4 text-sm text-center text-muted-foreground">
+                        <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>No se encontraron miembros</p>
+                        <p className="text-xs mt-1">Intenta con otro nombre</p>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setSelectedMemberId('all');
+                            setMemberSearchQuery('');
+                            setShowMemberDropdown(false);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm border-b"
+                        >
+                          <span className="font-medium">Todos los miembros</span>
+                          <span className="text-muted-foreground ml-2">({projectMembers.length})</span>
+                        </button>
+                        {filteredMembers.map((member) => (
+                          <button
+                            key={member.id}
+                            onClick={() => {
+                              setSelectedMemberId(member.id);
+                              setMemberSearchQuery('');
+                              setShowMemberDropdown(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm ${
+                              selectedMemberId === member.id ? 'bg-primary/10' : ''
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {member.photoURL ? (
+                                <img
+                                  src={member.photoURL}
+                                  alt={member.displayName || member.email}
+                                  className="h-6 w-6 rounded-full"
+                                />
+                              ) : (
+                                <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center">
+                                  <User className="h-3 w-3 text-primary" />
+                                </div>
+                              )}
+                              <span>{member.displayName || member.email}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Selector de vista */}
@@ -200,17 +334,24 @@ export function ProjectsPage() {
 
             {/* Indicador de filtros activos */}
             {(searchQuery || selectedMemberId !== 'all') && (
-              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-                <Filter className="h-4 w-4" />
-                <span>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">
                   Mostrando {userProjects.length} de {projects.filter(p => p.ownerId === user?.id || p.memberIds?.includes(user?.id || '') || p.owners?.includes(user?.id || '') || assignedProjectIds.has(p.id)).length} proyectos
                 </span>
+                {selectedMemberId !== 'all' && selectedMemberName && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                    <User className="h-3 w-3" />
+                    {selectedMemberName}
+                  </span>
+                )}
                 <button
                   onClick={() => {
                     setSearchQuery('');
                     setSelectedMemberId('all');
+                    setMemberSearchQuery('');
                   }}
-                  className="ml-2 text-primary hover:underline"
+                  className="ml-2 text-primary hover:underline font-medium"
                 >
                   Limpiar filtros
                 </button>
@@ -249,6 +390,7 @@ export function ProjectsPage() {
               onClick={() => {
                 setSearchQuery('');
                 setSelectedMemberId('all');
+                setMemberSearchQuery('');
               }}
             >
               Limpiar filtros
