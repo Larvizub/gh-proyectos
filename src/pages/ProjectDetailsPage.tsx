@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { projectsService, tasksService, charterService, risksService } from '@/services/firebase.service';
@@ -28,6 +28,7 @@ export default function ProjectDetailsPage() {
   const { tasks } = useTasksCache(id);
   const [usersMap, setUsersMap] = useState<Record<string, any>>({});
   const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'all' | TaskStatus | 'overdue'>('all');
   const [openTagFilter, setOpenTagFilter] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [viewType, setViewType] = useState<ViewType>('overview');
@@ -50,6 +51,25 @@ export default function ProjectDetailsPage() {
   const completedTasksCount = tasks.filter(t => t.status === 'completed').length;
   const totalTasksCount = tasks.length;
   const progressPercentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+
+  const filteredTasks = useMemo(() => {
+    let result = tasks;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartTs = todayStart.getTime();
+
+    if (tagFilters.length > 0) {
+      result = result.filter(t => (t.tags || []).some(tag => tagFilters.includes(tag)));
+    }
+
+    if (statusFilter === 'overdue') {
+      result = result.filter(t => typeof t.dueDate === 'number' && t.dueDate < todayStartTs && t.status !== 'completed');
+    } else if (statusFilter !== 'all') {
+      result = result.filter(t => t.status === statusFilter);
+    }
+
+    return result;
+  }, [tasks, tagFilters, statusFilter]);
 
   const handleCloseProject = async () => {
     if (!project) return;
@@ -400,6 +420,17 @@ export default function ProjectDetailsPage() {
                   )}
                 </div>
               ) : null}
+
+              <div className="w-full sm:w-[200px]">
+                <Select value={statusFilter} onChange={(v) => setStatusFilter(v as 'all' | TaskStatus | 'overdue')}>
+                  <option value="all">Todos los estados</option>
+                  <option value="todo">Por hacer</option>
+                  <option value="in-progress">En progreso</option>
+                  <option value="review">En revisión</option>
+                  <option value="completed">Completada</option>
+                  <option value="overdue">Vencidas</option>
+                </Select>
+              </div>
               
               <Button
                 variant="outline"
@@ -1083,7 +1114,7 @@ export default function ProjectDetailsPage() {
       {viewType === 'kanban' && (
         <div className="w-full max-w-full">
           <KanbanBoard 
-            tasks={tagFilters.length > 0 ? tasks.filter(t => (t.tags || []).some(tag => tagFilters.includes(tag))) : tasks} 
+            tasks={filteredTasks}
             onTaskClick={(task) => setSelectedTask(task)}
             onTaskStatusChange={handleTaskStatusChange}
             onTaskDelete={handleDeleteTask}
@@ -1092,7 +1123,7 @@ export default function ProjectDetailsPage() {
       )}
 
       {viewType === 'gantt' && (
-        <GanttChart tasks={tagFilters.length > 0 ? tasks.filter(t => (t.tags || []).some(tag => tagFilters.includes(tag))) : tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
+        <GanttChart tasks={filteredTasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
       )}
 
       {viewType === 'list' && (
@@ -1114,10 +1145,10 @@ export default function ProjectDetailsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {((tagFilters.length > 0 ? tasks.filter(t => (t.tags || []).some(tag => tagFilters.includes(tag))) : tasks).length === 0) ? (
+                  {(filteredTasks.length === 0) ? (
                     <tr><td colSpan={9} className="p-6 text-muted-foreground text-center">No hay tareas que coincidan con los filtros</td></tr>
                   ) : (
-                    (tagFilters.length > 0 ? tasks.filter(t => (t.tags || []).some(tag => tagFilters.includes(tag))) : tasks).map(task => (
+                    filteredTasks.map(task => (
                       <tr key={task.id} className="border-t hover:bg-muted/10">
                         <td className="px-4 py-3">{task.title}</td>
                         <td className="px-4 py-3">
@@ -1177,7 +1208,7 @@ export default function ProjectDetailsPage() {
 
       {viewType === 'calendar' && (
         <div>
-          <CalendarView tasks={tagFilters.length > 0 ? tasks.filter(t => (t.tags || []).some(tag => tagFilters.includes(tag))) : tasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
+          <CalendarView tasks={filteredTasks} onTaskClick={(t) => setSelectedTask(t)} onTaskDelete={handleDeleteTask} />
         </div>
       )}
 
